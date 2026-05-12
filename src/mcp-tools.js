@@ -79,7 +79,7 @@ export function listTimelineTools() {
     },
     {
       name: "render_timeline",
-      description: "Render a normalized timeline as Mermaid Gantt, Mermaid timeline, or compact Markdown.",
+      description: "Render a normalized timeline as Mermaid Gantt, Mermaid timeline, compact Markdown, or a review report.",
       inputSchema: {
         type: "object",
         required: ["timeline"],
@@ -88,7 +88,7 @@ export function listTimelineTools() {
           timeline: TIMELINE_SCHEMA,
           format: {
             type: "string",
-            enum: ["mermaid_gantt", "mermaid_timeline", "markdown"],
+            enum: ["mermaid_gantt", "mermaid_timeline", "markdown", "review_report"],
             default: "mermaid_gantt"
           }
         }

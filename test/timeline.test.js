@@ -39,6 +39,29 @@ test("createTimeline parses project notes into defensible items and flags gaps",
   assert.match(result.renders.mermaid_gantt, /gantt/);
 });
 
+test("createTimeline returns grouped follow-ups and confidence reasons for review", () => {
+  const result = createTimeline({
+    sources: [
+      {
+        id: "notes",
+        type: "text",
+        content: [
+          "Discovery: 2026-06-01 to 2026-06-05 owner TPM status planned",
+          "Build API: starts 2026-06-06 duration 5d owner BE depends on Discovery",
+          "Launch readiness owner TPM depends on Build API"
+        ].join("\n")
+      }
+    ]
+  });
+
+  assert.equal(result.timeline.items[0].confidence_reason, "Exact date evidence found in source text.");
+  assert.equal(result.timeline.items[2].confidence_reason, "No exact dates found; timeline placement needs human follow-up.");
+  assert.ok(result.followups.by_field.start.some((followup) => followup.itemTitle === "Launch readiness"));
+  assert.ok(result.followups.by_owner.TPM.some((followup) => followup.itemTitle === "Launch readiness"));
+  assert.match(result.renders.review_report, /## Follow-Up Questions/);
+  assert.match(result.renders.review_report, /Launch readiness/);
+});
+
 test("createTimeline filters Markdown to planning sections, parses tables, and reports ignored noise", () => {
   const result = createTimeline({
     sources: [
@@ -182,6 +205,16 @@ test("createTimeline parses JSON without losing supplied fields", () => {
   assert.ok(result.assumptions.includes("Imported from existing plan"));
 });
 
+test("createTimeline reports source-aware JSON parse diagnostics", () => {
+  assert.throws(
+    () =>
+      createTimeline({
+        sources: [{ id: "bad-json", type: "json", content: "{ nope" }]
+      }),
+    /Unable to parse JSON source "bad-json"/
+  );
+});
+
 test("validateTimeline detects missing dates, circular dependencies, and ambiguous milestone ownership", () => {
   const timeline = {
     items: [
@@ -200,6 +233,33 @@ test("validateTimeline detects missing dates, circular dependencies, and ambiguo
   assert.ok(result.gaps.some((gap) => gap.itemTitle === "A" && gap.field === "start"));
   assert.ok(result.gaps.some((gap) => gap.itemTitle === "Go live" && gap.field === "owner"));
   assert.ok(result.issues.some((issue) => issue.type === "circular_dependency"));
+});
+
+test("validateTimeline suggests likely dependency titles without silently resolving them", () => {
+  const result = validateTimeline({
+    items: [
+      { title: "Build API", type: "task", start: "2026-09-01", end: "2026-09-03", owner: "BE" },
+      { title: "QA", type: "task", start: "2026-09-04", duration: "2d", owner: "QA", dependencies: ["build api"] }
+    ]
+  });
+
+  const issue = result.issues.find((candidate) => candidate.type === "unknown_dependency");
+  assert.deepEqual(issue.suggestions, ["Build API"]);
+});
+
+test("createTimeline groups dependency follow-ups separately from date and owner gaps", () => {
+  const result = createTimeline({
+    sources: [
+      {
+        id: "notes",
+        type: "text",
+        content: "QA: starts 2026-09-04 duration 2d owner QA depends on build api"
+      }
+    ]
+  });
+
+  assert.ok(result.followups.by_dependency["build api"].some((followup) => followup.itemTitle === "QA"));
+  assert.equal(result.followups.by_dependency["build api"][0].field, "dependency");
 });
 
 test("renderTimeline returns valid Mermaid gantt, Mermaid timeline, and compact Markdown", () => {

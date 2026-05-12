@@ -16,13 +16,17 @@ expanding into a larger product.
 
 - Improve Markdown checklist parsing.
 - Add examples for PRD snippets, Jira-style exports, and launch checklists.
-- Add confidence reasons per item.
-- Generate follow-up questions grouped by owner, date, and dependency.
+- Add confidence reasons per item. Added in v0.2.0.
+- Generate follow-up questions grouped by owner, date, and dependency. Added
+  owner, date, field, and dependency grouping in v0.2.0.
+- Add first-run CLI output for JSON, Markdown, Mermaid, and review reports.
+  Added in v0.2.0.
 
 ## 0.3: Agent Workflow Polish
 
 - Add stricter schemas for timeline items and validation issues.
-- Improve error messages for malformed JSON and CSV.
+- Improve error messages for malformed JSON and CSV. JSON source diagnostics
+  improved in v0.2.0.
 - Add fixture-based tests from realistic planning documents.
 - Document MCP client setup for common local agent clients.
 

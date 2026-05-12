@@ -27,6 +27,22 @@ test("callTimelineTool returns JSON text content for create_timeline", () => {
   const parsed = JSON.parse(response.content[0].text);
   assert.equal(parsed.timeline.items[0].title, "Discovery");
   assert.match(parsed.renders.mermaid_gantt, /^gantt\n/);
+  assert.match(parsed.renders.review_report, /^## Timeline Review\n/);
+});
+
+test("render_timeline exposes review reports through the MCP schema", () => {
+  const renderTool = listTimelineTools().find((tool) => tool.name === "render_timeline");
+
+  assert.ok(renderTool.inputSchema.properties.format.enum.includes("review_report"));
+
+  const response = callTimelineTool("render_timeline", {
+    format: "review_report",
+    timeline: {
+      items: [{ title: "Discovery", start: "2026-06-01", owner: "TPM" }]
+    }
+  });
+
+  assert.match(response.content[0].text, /^## Timeline Review\n/);
 });
 
 test("callTimelineTool rejects unknown tools", () => {

@@ -1,6 +1,6 @@
 # Timeline Truth
 
-Status: v0.1.0 public release. MIT licensed. Requires Node.js 22 or newer.
+Status: v0.2.0 public release. MIT licensed. Requires Node.js 22 or newer.
 
 Timeline Truth is a local MCP server for AI-agent TPM workflows: paste PRD/Jira/status notes,
 CSV exports, launch checklists, or rough planning text; get timeline JSON,
@@ -30,8 +30,18 @@ single source. Then summarize the timeline, list gaps and assumptions, and show
 the mermaid_gantt output. Do not infer missing dates or owners.
 ```
 
-The server returns normalized items, gaps such as missing start/end dates, the
-default assumption that dates were not inferred, and portable Mermaid output.
+The server returns normalized items, confidence reasons, grouped follow-up
+questions, gaps such as missing start/end dates, the default assumption that
+dates were not inferred, and portable Mermaid output.
+
+For a quick local smoke test without configuring an MCP client, run the CLI:
+
+```bash
+timeline-truth examples/launch-checklist.md --format review
+```
+
+The CLI reads from stdin when no file is provided, and can print `json`,
+`markdown`, `mermaid_gantt`, `mermaid_timeline`, or `review` output.
 
 For larger Markdown notes, `create_timeline` can parse only selected headings
 and ignore the rest:
@@ -108,6 +118,7 @@ Optional global install:
 
 ```bash
 npm install -g timeline-truth
+timeline-truth examples/launch-checklist.md --format review
 timeline-truth-mcp
 ```
 
@@ -125,7 +136,7 @@ For local development, use the checkout config in
 - `validate_timeline`: report missing dates, owners, unknown dependencies,
   circular dependencies, and impossible sequencing.
 - `render_timeline`: render a normalized timeline as `mermaid_gantt`,
-  `mermaid_timeline`, or `markdown`.
+  `mermaid_timeline`, `markdown`, or `review_report`.
 - `refine_timeline`: apply edits while preserving evidence (`source_refs`) and
   assumptions.
 

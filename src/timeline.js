@@ -17,7 +17,7 @@ export function createTimeline(input = {}) {
     gaps: [],
     render: {
       audience: "TPM/PM",
-      defaultFormats: ["mermaid_gantt", "mermaid_timeline", "markdown"]
+      defaultFormats: ["mermaid_gantt", "mermaid_timeline", "markdown", "review_report"]
     }
   });
   const validation = validateTimeline(timeline);
@@ -26,17 +26,20 @@ export function createTimeline(input = {}) {
     gaps: validation.gaps,
     issues: validation.issues
   };
+  const followups = buildFollowups(validatedTimeline);
 
   return {
     timeline: validatedTimeline,
     assumptions: validatedTimeline.assumptions,
     gaps: validatedTimeline.gaps,
     issues: validation.issues,
+    followups,
     noise_report: noiseReport,
     renders: {
       mermaid_gantt: renderTimeline(validatedTimeline, { format: "mermaid_gantt" }),
       mermaid_timeline: renderTimeline(validatedTimeline, { format: "mermaid_timeline" }),
-      markdown: renderTimeline(validatedTimeline, { format: "markdown" })
+      markdown: renderTimeline(validatedTimeline, { format: "markdown" }),
+      review_report: renderTimeline(validatedTimeline, { format: "review_report" })
     }
   };
 }
@@ -71,11 +74,13 @@ export function validateTimeline(timeline = {}) {
   for (const item of normalized.items) {
     for (const dependency of item.dependencies) {
       if (!normalized.items.some((candidate) => candidate.title === dependency)) {
+        const suggestions = suggestDependencyTitles(normalized.items, dependency);
         issues.push({
           type: "unknown_dependency",
           severity: "warning",
           itemTitle: item.title,
           dependency,
+          suggestions,
           message: `Dependency "${dependency}" was not found in the timeline.`
         });
       }
@@ -120,6 +125,10 @@ export function renderTimeline(timeline = {}, options = {}) {
 
   if (format === "markdown") {
     return renderMarkdown(normalized);
+  }
+
+  if (format === "review_report") {
+    return renderReviewReport(normalized);
   }
 
   return renderMermaidGantt(normalized);
@@ -175,7 +184,13 @@ function parseSource(source, index, importedAssumptions, input, noiseReport) {
 }
 
 function parseJsonSource(source, importedAssumptions) {
-  const parsed = typeof source.content === "string" ? JSON.parse(source.content) : source.content;
+  let parsed;
+  try {
+    parsed = typeof source.content === "string" ? JSON.parse(source.content) : source.content;
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : String(error);
+    throw new Error(`Unable to parse JSON source "${source.id}": ${detail}`);
+  }
   const rawItems = Array.isArray(parsed) ? parsed : parsed.items ?? [];
 
   if (Array.isArray(parsed.assumptions)) {
@@ -311,7 +326,10 @@ function parseTextLine(line, sourceId, lineNumber) {
     owner,
     status,
     dependencies,
-    confidence: dates.length > 0 ? 0.75 : 0.45
+    confidence: dates.length > 0 ? 0.75 : 0.45,
+    confidence_reason: dates.length > 0
+      ? "Exact date evidence found in source text."
+      : "No exact dates found; timeline placement needs human follow-up."
   };
 
   return normalizeItem(item, [{ sourceId, line: lineNumber, text: trimmed }]);
@@ -406,7 +424,12 @@ function markdownRecordToItem(record, heading) {
     time_window: fuzzyTarget,
     date_text: fuzzyTarget,
     exact_date_needed: Boolean(fuzzyTarget),
-    confidence: target ? 0.7 : 0.55
+    confidence: target ? 0.7 : 0.55,
+    confidence_reason: fuzzyTarget
+      ? "Fuzzy date text was preserved for human review."
+      : target
+        ? "Exact target date evidence found in Markdown table."
+        : "No target date found in Markdown table row."
   };
 }
 
@@ -421,6 +444,7 @@ function normalizeTimeline(timeline = {}) {
     milestones,
     assumptions: Array.isArray(timeline.assumptions) ? [...timeline.assumptions] : [],
     gaps: Array.isArray(timeline.gaps) ? [...timeline.gaps] : [],
+    issues: Array.isArray(timeline.issues) ? [...timeline.issues] : [],
     render: timeline.render && typeof timeline.render === "object" ? { ...timeline.render } : {}
   };
 }
@@ -446,6 +470,9 @@ function normalizeItem(item = {}, sourceRefs = []) {
     status: blankToUndefined(item.status) || "unknown",
     dependencies: dependencies.map((dependency) => String(dependency).trim()).filter(Boolean),
     confidence: typeof item.confidence === "number" ? item.confidence : 0.6,
+    confidence_reason: typeof item.confidence_reason === "string"
+      ? item.confidence_reason
+      : deriveConfidenceReason(item),
     source_refs: normalizeSourceRefs(sourceRefs)
   };
 }
@@ -513,6 +540,24 @@ function dedupeCycles(cycles) {
   });
 }
 
+function suggestDependencyTitles(items, dependency) {
+  const dependencyKey = normalizeDependencyKey(dependency);
+  if (!dependencyKey) return [];
+
+  return items
+    .filter((item) => {
+      const titleKey = normalizeDependencyKey(item.title);
+      const idKey = normalizeDependencyKey(item.id);
+      return titleKey === dependencyKey || idKey === dependencyKey;
+    })
+    .map((item) => item.title)
+    .slice(0, 3);
+}
+
+function normalizeDependencyKey(value) {
+  return String(value || "").toLowerCase().replace(/[^a-z0-9]+/g, "");
+}
+
 function renderMermaidGantt(timeline) {
   const lines = ["gantt", "  title Project Timeline", "  dateFormat YYYY-MM-DD", "  axisFormat %b %d", "  section Plan"];
 
@@ -570,6 +615,107 @@ function renderMarkdown(timeline) {
   }
 
   return `${lines.join("\n")}\n`;
+}
+
+function renderReviewReport(timeline) {
+  const followups = buildFollowups(timeline);
+  const lines = ["## Timeline Review", "", "### Items"];
+
+  for (const item of timeline.items) {
+    const window = item.start ? `${item.start}${item.end ? ` to ${item.end}` : item.duration ? ` for ${item.duration}` : ""}` : item.time_window || "date needed";
+    lines.push(`- **${item.title}** (${item.type}, ${item.status}) - ${window}${item.owner ? ` - owner: ${item.owner}` : ""}`);
+    lines.push(`  - Confidence: ${item.confidence} - ${item.confidence_reason}`);
+    if (item.source_refs.length > 0) {
+      lines.push(`  - Source: ${formatSourceRef(item.source_refs[0])}`);
+    }
+  }
+
+  if (timeline.gaps.length > 0) {
+    lines.push("", "### Follow-Up Questions");
+    for (const followup of followups.all) {
+      lines.push(`- ${followup.itemTitle}${followup.owner ? ` (${followup.owner})` : ""}: ${followup.question}`);
+    }
+  }
+
+  if (timeline.issues.length > 0) {
+    lines.push("", "### Issues");
+    for (const issue of timeline.issues) {
+      const suggestions = issue.suggestions?.length ? ` Suggestions: ${issue.suggestions.join(", ")}.` : "";
+      lines.push(`- ${issue.severity}: ${issue.message}${suggestions}`);
+    }
+  }
+
+  if (timeline.assumptions.length > 0) {
+    lines.push("", "### Assumptions");
+    for (const assumption of timeline.assumptions) {
+      lines.push(`- ${assumption}`);
+    }
+  }
+
+  return `${lines.join("\n")}\n`;
+}
+
+function buildFollowups(timeline) {
+  const byTitle = new Map(timeline.items.map((item) => [item.title, item]));
+  const gapFollowups = timeline.gaps.map((gap) => {
+    const item = byTitle.get(gap.itemTitle);
+    return {
+      itemTitle: gap.itemTitle,
+      field: gap.field,
+      owner: item?.owner,
+      question: gap.question,
+      source_refs: gap.source_refs
+    };
+  });
+  const dependencyFollowups = timeline.issues
+    .filter((issue) => issue.type === "unknown_dependency")
+    .map((issue) => {
+      const item = byTitle.get(issue.itemTitle);
+      const suggestions = issue.suggestions?.length
+        ? ` Did you mean ${issue.suggestions.join(", ")}?`
+        : "";
+      return {
+        itemTitle: issue.itemTitle,
+        field: "dependency",
+        dependency: issue.dependency,
+        owner: item?.owner,
+        question: `Confirm the dependency "${issue.dependency}" or add it to the timeline.${suggestions}`,
+        source_refs: item?.source_refs ?? []
+      };
+    });
+  const all = [...gapFollowups, ...dependencyFollowups];
+  const dateFollowups = all.filter((followup) => ["start", "end", "exact_date"].includes(followup.field));
+
+  return {
+    all,
+    by_field: groupBy(all, (followup) => followup.field),
+    by_owner: groupBy(all, (followup) => followup.owner || "Unassigned"),
+    by_date: groupBy(dateFollowups, (followup) => followup.field),
+    by_dependency: groupBy(dependencyFollowups, (followup) => followup.dependency)
+  };
+}
+
+function groupBy(values, keyFn) {
+  return values.reduce((groups, value) => {
+    const key = keyFn(value);
+    groups[key] = groups[key] || [];
+    groups[key].push(value);
+    return groups;
+  }, {});
+}
+
+function deriveConfidenceReason(item) {
+  if (item.time_window || item.date_text) return "Fuzzy date text was preserved for human review.";
+  if (item.start || item.end || item.duration) return "Structured date evidence was supplied.";
+  return "No date evidence was supplied.";
+}
+
+function formatSourceRef(sourceRef) {
+  const parts = [sourceRef.sourceId];
+  if (sourceRef.path) parts.push(sourceRef.path);
+  if (sourceRef.heading) parts.push(`heading "${sourceRef.heading}"`);
+  if (sourceRef.line) parts.push(`line ${sourceRef.line}`);
+  return parts.filter(Boolean).join(", ");
 }
 
 function parseCsv(content) {

@@ -46,6 +46,7 @@ Optional global install:
 
 ```bash
 npm install -g timeline-truth
+timeline-truth examples/launch-checklist.md --format review
 timeline-truth-mcp
 ```
 
@@ -81,5 +82,7 @@ Useful follow-up calls:
 
 - `validate_timeline` after manual edits or agent refinements.
 - `render_timeline` when you need only Mermaid or Markdown output.
+- `render_timeline` with `review_report` when you need a paste-ready review
+  summary with confidence reasons and grouped follow-up questions.
 - `refine_timeline` when a human answers a gap and you need to preserve
   existing `source_refs`.

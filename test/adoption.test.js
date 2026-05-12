@@ -13,13 +13,23 @@ const EXAMPLE_CASES = [
 
 test("README gives a credible first-use path for AI-agent TPM adoption", () => {
   const readme = readFileSync("README.md", "utf8");
+  const packageJson = JSON.parse(readFileSync("package.json", "utf8"));
 
+  assert.match(readme, new RegExp(`Status: v${packageJson.version} public release`));
   assert.match(readme, /paste PRD\/Jira\/status notes/i);
   assert.match(readme, /Why not just ask ChatGPT or Mermaid\?/i);
   assert.match(readme, /Current limitations/i);
   assert.match(readme, /Npm package config/i);
+  assert.match(readme, /timeline-truth examples\/launch-checklist\.md --format review/i);
   assert.match(readme, /Markdown tables under those headings are parsed into items/i);
   assert.match(readme, /noise_report\.ignored/i);
+});
+
+test("package exposes both MCP and first-run CLI binaries", () => {
+  const packageJson = JSON.parse(readFileSync("package.json", "utf8"));
+
+  assert.equal(packageJson.bin["timeline-truth-mcp"], "src/mcp-server.js");
+  assert.equal(packageJson.bin["timeline-truth"], "src/cli.js");
 });
 
 test("MCP setup and release docs cover local use, npm use, agent prompting, and publish checks", () => {
