@@ -17,7 +17,7 @@ test("README gives a credible first-use path for AI-agent TPM adoption", () => {
   assert.match(readme, /paste PRD\/Jira\/status notes/i);
   assert.match(readme, /Why not just ask ChatGPT or Mermaid\?/i);
   assert.match(readme, /Current limitations/i);
-  assert.match(readme, /npm package is published/i);
+  assert.match(readme, /Npm package config/i);
 });
 
 test("MCP setup and release docs cover local use, npm use, agent prompting, and publish checks", () => {

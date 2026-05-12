@@ -26,7 +26,7 @@ npm install
 
 ## Npm Package
 
-Use this after the `timeline-truth` npm package is published:
+Use the published `timeline-truth` package:
 
 ```json
 {
@@ -39,8 +39,8 @@ Use this after the `timeline-truth` npm package is published:
 }
 ```
 
-Before publish, `npx --package=timeline-truth timeline-truth-mcp` will fail
-because the package is not yet available from the public registry.
+If you need to test local changes before publishing a new version, use the local
+checkout config above.
 
 ## Agent Prompt
 

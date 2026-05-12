@@ -8,9 +8,8 @@ Use this checklist before publishing a public version of `timeline-truth`.
 npm view timeline-truth version
 ```
 
-Expected before first publish: npm returns `404 Not Found`.
-
-Expected after publish: npm returns the latest published version.
+Expected result: npm returns the latest published version. Before publishing a
+new release, confirm whether the version in `package.json` needs to be bumped.
 
 ## Verify Local Quality
 

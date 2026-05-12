@@ -1,7 +1,6 @@
 # Timeline Truth
 
-Status: v0.2 adoption release in progress. MIT licensed. Requires Node.js
-22 or newer.
+Status: v0.1.0 public release. MIT licensed. Requires Node.js 22 or newer.
 
 Timeline Truth is a local MCP server for AI-agent TPM workflows: paste PRD/Jira/status notes,
 CSV exports, launch checklists, or rough planning text; get timeline JSON,
@@ -66,7 +65,7 @@ npm install
 node src/mcp-server.js
 ```
 
-Npm package config, after the npm package is published:
+Npm package config:
 
 ```json
 {
@@ -79,9 +78,8 @@ Npm package config, after the npm package is published:
 }
 ```
 
-Important: the npm package install path works only after `timeline-truth` is
-published to npm. Before the npm package is published, use the local checkout
-config in [docs/MCP-SETUP.md](docs/MCP-SETUP.md).
+For local development, use the checkout config in
+[docs/MCP-SETUP.md](docs/MCP-SETUP.md).
 
 ## MCP Tools
 
