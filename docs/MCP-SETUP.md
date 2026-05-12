@@ -39,6 +39,30 @@ Use the published `timeline-truth` package:
 }
 ```
 
+This is the recommended package config because it does not require a global npm
+install or depend on the user's global npm bin directory being on `PATH`.
+
+Optional global install:
+
+```bash
+npm install -g timeline-truth
+timeline-truth-mcp
+```
+
+With the global package installed and available on `PATH`, the MCP config can
+call the package binary directly:
+
+```json
+{
+  "mcpServers": {
+    "timeline-truth": {
+      "command": "timeline-truth-mcp",
+      "args": []
+    }
+  }
+}
+```
+
 If you need to test local changes before publishing a new version, use the local
 checkout config above.
 

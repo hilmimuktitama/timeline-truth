@@ -78,6 +78,17 @@ Npm package config:
 }
 ```
 
+Optional global install:
+
+```bash
+npm install -g timeline-truth
+timeline-truth-mcp
+```
+
+If your global npm bin directory is on `PATH`, you can also configure the MCP
+server with `"command": "timeline-truth-mcp"`. The `npx --package` config above
+is the most portable option because it does not depend on global shell setup.
+
 For local development, use the checkout config in
 [docs/MCP-SETUP.md](docs/MCP-SETUP.md).
 
