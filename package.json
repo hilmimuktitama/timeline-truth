@@ -14,7 +14,7 @@
   "homepage": "https://github.com/hilmimuktitama/timeline-truth#readme",
   "type": "module",
   "bin": {
-    "timeline-truth-mcp": "./src/mcp-server.js"
+    "timeline-truth-mcp": "src/mcp-server.js"
   },
   "files": [
     "src",
