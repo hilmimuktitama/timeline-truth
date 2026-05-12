@@ -1,0 +1,34 @@
+{
+  "name": "timeline-builder",
+  "version": "0.1.0",
+  "description": "Open-source MCP server for compiling messy project planning inputs into evidence-preserving timelines.",
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "timeline-builder-mcp": "./src/mcp-server.js"
+  },
+  "files": [
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "timeline",
+    "project-planning",
+    "mermaid",
+    "tpm",
+    "program-management"
+  ],
+  "scripts": {
+    "test": "node --test",
+    "check": "node scripts/check-syntax.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.17.5"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}
