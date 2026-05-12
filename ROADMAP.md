@@ -1,6 +1,6 @@
 # Roadmap
 
-Timeline Builder should validate usefulness as an open-source MCP server before
+Timeline Truth should validate usefulness as an open-source MCP server before
 expanding into a larger product.
 
 ## 0.1: Evidence-First Core

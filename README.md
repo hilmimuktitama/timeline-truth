@@ -1,119 +1,123 @@
-# Timeline Builder
+# Timeline Truth
 
-Open-source MCP server for compiling messy project planning inputs into
-evidence-preserving timelines.
+Status: v0.2 adoption release in progress. MIT licensed. Requires Node.js
+22 or newer.
 
-Timeline Builder is intentionally narrow: agents pass pasted text, Markdown,
-CSV, or JSON planning material; the server returns a normalized timeline model,
-validation gaps, assumptions, and Mermaid/Markdown renders. It does not infer
-missing dates or owners.
+Timeline Truth is a local MCP server for AI-agent TPM workflows: paste PRD/Jira/status notes,
+CSV exports, launch checklists, or rough planning text; get timeline JSON,
+validation gaps, assumptions, and Mermaid/Markdown renders.
 
-The goal is to help TPMs, PMs, engineering leads, and AI agents turn rough
-planning notes into defensible timeline artifacts without hiding missing
-information.
+It is intentionally narrow. Timeline Truth does not invent missing dates,
+owners, or dependencies. It preserves `source_refs` and makes planning
+uncertainty visible so humans can review the timeline instead of trusting a
+confident rewrite.
+
+## First Use
+
+Use it when your planning input looks like this:
+
+```text
+Discovery: 2026-06-01 to 2026-06-05 owner PM status planned
+API contract: starts 2026-06-06 duration 4d owner Platform depends on Discovery
+Checkout QA: owner QA depends on API contract
+Launch decision milestone on 2026-06-17 owner PM
+```
+
+Ask your agent:
+
+```text
+Use the timeline-truth MCP server. Call create_timeline with these notes as a
+single source. Then summarize the timeline, list gaps and assumptions, and show
+the mermaid_gantt output. Do not infer missing dates or owners.
+```
+
+The server returns normalized items, gaps such as missing start/end dates, the
+default assumption that dates were not inferred, and portable Mermaid output.
 
 ## Why This Exists
 
 Most timeline tools assume the plan is already structured. Real planning inputs
-usually are not. They are PRD snippets, Jira notes, launch checklists, status
-updates, CSV exports, and Slack summaries.
+usually are not. They are PRD snippets, Jira notes, launch checklists, weekly
+status updates, CSV exports, and Slack summaries.
 
-Timeline Builder focuses on the handoff from messy planning material to a
+Timeline Truth focuses on the handoff from messy planning material to a
 reviewable timeline:
 
 - preserve `source_refs` so every item can point back to evidence
 - flag missing dates, owners, and dependency problems instead of guessing
 - render portable Mermaid and Markdown artifacts
-- stay small enough to run inside agent workflows
+- stay small enough to run inside local agent workflows
 
-## Tools
+## Why not just ask ChatGPT or Mermaid?
 
-- `create_timeline`: compile source content into timeline JSON plus Mermaid outputs.
-- `validate_timeline`: report missing dates, owners, unknown dependencies, circular dependencies, and sequencing issues.
-- `render_timeline`: render a normalized timeline as `mermaid_gantt`, `mermaid_timeline`, or `markdown`.
-- `refine_timeline`: apply edits while preserving evidence (`source_refs`) and assumptions.
+ChatGPT can draft a timeline, and Mermaid can render one. Timeline Truth does a
+smaller job: it gives the agent a deterministic compiler/validator so the output
+keeps evidence, gaps, assumptions, and repeatable render formats.
 
-## Quick Start
+That matters when a TPM, PM, or engineering lead needs to review what is known,
+what is missing, and where each timeline item came from.
+
+## Install
+
+Local checkout:
 
 ```bash
 npm install
 node src/mcp-server.js
 ```
 
-Or run through the package binary:
-
-```bash
-npx timeline-builder-mcp
-```
-
-## MCP Client Configuration
-
-Use this server as a local stdio MCP server:
+Npm package config, after the npm package is published:
 
 ```json
 {
   "mcpServers": {
-    "timeline-builder": {
+    "timeline-truth": {
       "command": "npx",
-      "args": ["timeline-builder-mcp"]
+      "args": ["-y", "--package=timeline-truth", "timeline-truth-mcp"]
     }
   }
 }
 ```
 
-For a local checkout:
+Important: the npm package install path works only after `timeline-truth` is
+published to npm. Before the npm package is published, use the local checkout
+config in [docs/MCP-SETUP.md](docs/MCP-SETUP.md).
 
-```json
-{
-  "mcpServers": {
-    "timeline-builder": {
-      "command": "node",
-      "args": ["C:/path/to/timeline-builder/src/mcp-server.js"]
-    }
-  }
-}
-```
+## MCP Tools
 
-## Example Input
+- `create_timeline`: compile source content into timeline JSON plus Mermaid
+  outputs.
+- `validate_timeline`: report missing dates, owners, unknown dependencies,
+  circular dependencies, and impossible sequencing.
+- `render_timeline`: render a normalized timeline as `mermaid_gantt`,
+  `mermaid_timeline`, or `markdown`.
+- `refine_timeline`: apply edits while preserving evidence (`source_refs`) and
+  assumptions.
 
-```text
-Discovery: 2026-06-01 to 2026-06-05 owner Ana status planned
-Build API: starts 2026-06-06 duration 5d owner BE depends on Discovery
-Stakeholder review milestone on 2026-06-14
-Launch readiness owner TPM depends on Build API
-```
+## Examples
 
-## Example Output Shape
+Realistic fixtures live in [examples](examples):
 
-```json
-{
-  "timeline": {
-    "items": [
-      {
-        "title": "Discovery",
-        "type": "task",
-        "start": "2026-06-01",
-        "end": "2026-06-05",
-        "owner": "Ana",
-        "source_refs": [
-          {
-            "sourceId": "notes",
-            "line": 1
-          }
-        ]
-      }
-    ],
-    "gaps": [],
-    "assumptions": [
-      "No dates were inferred. Missing dates are reported as gaps for agent or user follow-up."
-    ]
-  }
-}
-```
+- [PRD snippet](examples/prd-snippet.md)
+- [Jira CSV export](examples/jira-export.csv)
+- [Launch checklist](examples/launch-checklist.md)
+- [Status update](examples/status-update.md)
+
+Each example has a compact expected-output JSON file and is covered by tests.
+
+## Current limitations
+
+- Text and Markdown parsing is heuristic. It works best when each planning item
+  is on its own line.
+- Markdown headings are ignored and task-list markers are stripped, but rich
+  nested documents are not fully parsed.
+- CSV and JSON are more reliable than free-form notes when exact fields matter.
+- There are no Jira, Confluence, Slack, or hosted imports in this release.
+- The server validates dependencies by item title, not by external issue keys.
 
 ## Project Boundaries
 
-Timeline Builder is not a project management system, scheduling optimizer, or
+Timeline Truth is not a project management system, scheduling optimizer, or
 visual planning app. It is a compiler and validator for timeline artifacts.
 
 Good fits:
@@ -136,7 +140,10 @@ Poor fits:
 npm install
 npm test
 npm run check
+npm pack --dry-run
 ```
+
+See [docs/RELEASE.md](docs/RELEASE.md) before publishing.
 
 ## Contributing
 

@@ -7,7 +7,7 @@ import { callTimelineTool, listTimelineTools } from "./mcp-tools.js";
 
 const server = new Server(
   {
-    name: "timeline-builder",
+    name: "timeline-truth",
     version: "0.1.0"
   },
   {

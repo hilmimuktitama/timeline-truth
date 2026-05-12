@@ -1,0 +1,5 @@
+title,type,start,end,owner,status,dependencies
+Discovery,task,2026-07-01,2026-07-03,PM,done,
+Backend API,task,2026-07-04,,BE,active,Discovery
+Beta milestone,milestone,2026-07-12,,PM,planned,Backend API
+Data migration,task,,,DBA,planned,Backend API

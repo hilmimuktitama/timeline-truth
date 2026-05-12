@@ -1,6 +1,6 @@
 # Contributing
 
-Thanks for helping improve Timeline Builder.
+Thanks for helping improve Timeline Truth.
 
 This project is an evidence-preserving timeline compiler for agent workflows.
 It should stay small, predictable, and easy to run locally.

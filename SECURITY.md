@@ -1,6 +1,6 @@
 # Security Policy
 
-Timeline Builder is a local MCP server. It is designed to process planning
+Timeline Truth is a local MCP server. It is designed to process planning
 content provided by the user or by an MCP client.
 
 ## Supported Versions

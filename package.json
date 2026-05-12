@@ -1,14 +1,25 @@
 {
-  "name": "timeline-builder",
+  "name": "timeline-truth",
   "version": "0.1.0",
   "description": "Open-source MCP server for compiling messy project planning inputs into evidence-preserving timelines.",
+  "author": "hilmimuktitama",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hilmimuktitama/timeline-truth.git"
+  },
+  "bugs": {
+    "url": "https://github.com/hilmimuktitama/timeline-truth/issues"
+  },
+  "homepage": "https://github.com/hilmimuktitama/timeline-truth#readme",
   "type": "module",
   "bin": {
-    "timeline-builder-mcp": "./src/mcp-server.js"
+    "timeline-truth-mcp": "./src/mcp-server.js"
   },
   "files": [
     "src",
+    "docs",
+    "examples",
     "README.md",
     "LICENSE"
   ],

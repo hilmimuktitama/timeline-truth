@@ -1,0 +1,19 @@
+{
+  "sourceId": "prd-snippet",
+  "itemTitles": [
+    "Discovery",
+    "API contract",
+    "Checkout QA",
+    "Launch decision"
+  ],
+  "gaps": [
+    {
+      "itemTitle": "Checkout QA",
+      "field": "start"
+    },
+    {
+      "itemTitle": "Checkout QA",
+      "field": "end"
+    }
+  ]
+}

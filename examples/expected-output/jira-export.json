@@ -1,0 +1,23 @@
+{
+  "sourceId": "jira-export",
+  "itemTitles": [
+    "Discovery",
+    "Backend API",
+    "Beta milestone",
+    "Data migration"
+  ],
+  "gaps": [
+    {
+      "itemTitle": "Backend API",
+      "field": "end"
+    },
+    {
+      "itemTitle": "Data migration",
+      "field": "start"
+    },
+    {
+      "itemTitle": "Data migration",
+      "field": "end"
+    }
+  ]
+}

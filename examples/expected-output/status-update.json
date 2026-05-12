@@ -1,0 +1,27 @@
+{
+  "sourceId": "status-update",
+  "itemTitles": [
+    "Mobile beta",
+    "Partner review",
+    "Rollout",
+    "Analytics setup"
+  ],
+  "gaps": [
+    {
+      "itemTitle": "Partner review",
+      "field": "owner"
+    },
+    {
+      "itemTitle": "Rollout",
+      "field": "start"
+    },
+    {
+      "itemTitle": "Rollout",
+      "field": "end"
+    },
+    {
+      "itemTitle": "Analytics setup",
+      "field": "owner"
+    }
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "sourceId": "launch-checklist",
+  "itemTitles": [
+    "Scope review",
+    "Production readiness",
+    "Legal approval",
+    "Go live"
+  ],
+  "gaps": [
+    {
+      "itemTitle": "Legal approval",
+      "field": "start"
+    },
+    {
+      "itemTitle": "Legal approval",
+      "field": "end"
+    }
+  ]
+}

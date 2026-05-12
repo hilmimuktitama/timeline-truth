@@ -198,7 +198,7 @@ function parseTextSource(source) {
 }
 
 function parseTextLine(line, sourceId, lineNumber) {
-  const trimmed = line.trim().replace(/^[-*]\s+/, "");
+  const trimmed = normalizePlanningLine(line);
   if (!trimmed) return null;
 
   const dates = [...trimmed.matchAll(DATE_PATTERN)].map((match) => match[0]);
@@ -222,6 +222,15 @@ function parseTextLine(line, sourceId, lineNumber) {
   };
 
   return normalizeItem(item, [{ sourceId, line: lineNumber, text: trimmed }]);
+}
+
+function normalizePlanningLine(line) {
+  const trimmed = String(line).trim();
+  if (/^#{1,6}\s+/.test(trimmed)) return "";
+
+  return trimmed
+    .replace(/^[-*]\s+\[[ xX]\]\s+/, "")
+    .replace(/^[-*]\s+/, "");
 }
 
 function extractTitle(line, type) {
