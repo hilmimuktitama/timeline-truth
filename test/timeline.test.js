@@ -39,6 +39,95 @@ test("createTimeline parses project notes into defensible items and flags gaps",
   assert.match(result.renders.mermaid_gantt, /gantt/);
 });
 
+test("createTimeline filters Markdown to planning sections, parses tables, and reports ignored noise", () => {
+  const result = createTimeline({
+    sources: [
+      {
+        id: "program-note",
+        type: "markdown",
+        path: "docs/program.md",
+        content: [
+          "---",
+          "title: MAG rollout",
+          "owner: TPM",
+          "---",
+          "# MAG Rollout",
+          "This prose explains context and should not become a timeline item.",
+          "",
+          "## Timeline",
+          "",
+          "| Item | Target | Owner | Status |",
+          "| --- | --- | --- | --- |",
+          "| API readiness for MAG | W3-W4 May 2026 | Platform | At risk |",
+          "| Cutover rehearsal | 2026-06-15 | SRE | Planned |",
+          "",
+          "## Notes",
+          "This prose should also be ignored."
+        ].join("\n")
+      }
+    ]
+  });
+
+  assert.deepEqual(
+    result.timeline.items.map((item) => item.title),
+    ["API readiness for MAG", "Cutover rehearsal"]
+  );
+  assert.equal(result.timeline.items[0].time_window, "W3-W4 May 2026");
+  assert.equal(result.timeline.items[0].exact_date_needed, true);
+  assert.equal(result.timeline.items[0].start, undefined);
+  assert.equal(result.timeline.items[1].start, "2026-06-15");
+  assert.deepEqual(result.timeline.items[0].source_refs, [
+    {
+      sourceId: "program-note",
+      path: "docs/program.md",
+      heading: "Timeline",
+      tableRow: 1,
+      line: 12,
+      text: "| API readiness for MAG | W3-W4 May 2026 | Platform | At risk |"
+    }
+  ]);
+  assert.equal(result.noise_report.ignored.frontmatter_lines, 4);
+  assert.ok(result.noise_report.ignored.prose_lines >= 2);
+  assert.equal(result.noise_report.ignored.table_rows_without_dates, 0);
+  assert.ok(
+    result.gaps.some(
+      (gap) => gap.itemTitle === "API readiness for MAG" && gap.field === "exact_date"
+    )
+  );
+});
+
+test("createTimeline honors Markdown heading allowlists and counts table rows without dates", () => {
+  const result = createTimeline({
+    markdown: {
+      sections: ["Follow-Ups"]
+    },
+    sources: [
+      {
+        id: "weekly",
+        type: "markdown",
+        content: [
+          "# Weekly",
+          "## Timeline",
+          "- Should be ignored: 2026-07-01 owner PM",
+          "## Follow-Ups",
+          "| Follow-Up | Owner | Status | Target |",
+          "| --- | --- | --- | --- |",
+          "| Confirm migration window | TPM | Open | W2 July 2026 |",
+          "| Share launch notes | PM | Open | |"
+        ].join("\n")
+      }
+    ]
+  });
+
+  assert.deepEqual(
+    result.timeline.items.map((item) => item.title),
+    ["Confirm migration window", "Share launch notes"]
+  );
+  assert.equal(result.timeline.items[0].time_window, "W2 July 2026");
+  assert.equal(result.timeline.items[1].owner, "PM");
+  assert.equal(result.noise_report.ignored.table_rows_without_dates, 1);
+});
+
 test("createTimeline parses CSV rows while preserving owners, dates, status, and dependencies", () => {
   const result = createTimeline({
     sources: [

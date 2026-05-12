@@ -10,6 +10,14 @@ test("listTimelineTools exposes the planned MCP tool names", () => {
   );
 });
 
+test("create_timeline schema exposes Markdown source paths and section allowlists", () => {
+  const createTool = listTimelineTools().find((tool) => tool.name === "create_timeline");
+
+  assert.equal(createTool.inputSchema.properties.sources.items.properties.path.type, "string");
+  assert.deepEqual(createTool.inputSchema.properties.markdown.properties.sections.items, { type: "string" });
+  assert.equal(createTool.inputSchema.properties.markdown.properties.ignoreFrontmatter.default, true);
+});
+
 test("callTimelineTool returns JSON text content for create_timeline", () => {
   const response = callTimelineTool("create_timeline", {
     sources: [{ id: "notes", type: "text", content: "Discovery: 2026-06-01 to 2026-06-05 owner TPM" }]

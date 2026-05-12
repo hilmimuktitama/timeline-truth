@@ -33,6 +33,32 @@ the mermaid_gantt output. Do not infer missing dates or owners.
 The server returns normalized items, gaps such as missing start/end dates, the
 default assumption that dates were not inferred, and portable Mermaid output.
 
+For larger Markdown notes, `create_timeline` can parse only selected headings
+and ignore the rest:
+
+```json
+{
+  "sources": [
+    {
+      "id": "program-note",
+      "type": "markdown",
+      "path": "docs/program.md",
+      "content": "..."
+    }
+  ],
+  "markdown": {
+    "sections": ["Timeline", "Follow-Ups"],
+    "ignoreFrontmatter": true
+  }
+}
+```
+
+Markdown tables under those headings are parsed into items. Fuzzy targets such
+as `W3-W4 May 2026` are preserved as `time_window`/`date_text` and flagged with
+an `exact_date` gap instead of being converted into invented dates. The response
+also includes `noise_report.ignored` counts for skipped frontmatter, prose, and
+table rows without target dates.
+
 ## Why This Exists
 
 Most timeline tools assume the plan is already structured. Real planning inputs
@@ -116,9 +142,9 @@ Each example has a compact expected-output JSON file and is covered by tests.
 
 ## Current limitations
 
-- Text and Markdown parsing is heuristic. It works best when each planning item
-  is on its own line.
-- Markdown headings are ignored and task-list markers are stripped, but rich
+- Text parsing is heuristic. It works best when each planning item is on its own
+  line.
+- Markdown parsing supports heading filters and simple pipe tables, but rich
   nested documents are not fully parsed.
 - CSV and JSON are more reliable than free-form notes when exact fields matter.
 - There are no Jira, Confluence, Slack, or hosted imports in this release.

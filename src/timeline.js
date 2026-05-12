@@ -1,9 +1,13 @@
 const DATE_PATTERN = /\b\d{4}-\d{2}-\d{2}\b/g;
+const DEFAULT_MARKDOWN_SECTIONS = ["Timeline", "Milestones", "Next", "Risks And Blockers", "Follow-Ups"];
 
 export function createTimeline(input = {}) {
   const sources = Array.isArray(input.sources) ? input.sources : [];
   const importedAssumptions = [];
-  const items = sources.flatMap((source, index) => parseSource(source, index, importedAssumptions));
+  const noiseReport = createNoiseReport();
+  const items = sources.flatMap((source, index) =>
+    parseSource(source, index, importedAssumptions, input, noiseReport)
+  );
   const timeline = normalizeTimeline({
     items,
     assumptions: [
@@ -28,6 +32,7 @@ export function createTimeline(input = {}) {
     assumptions: validatedTimeline.assumptions,
     gaps: validatedTimeline.gaps,
     issues: validation.issues,
+    noise_report: noiseReport,
     renders: {
       mermaid_gantt: renderTimeline(validatedTimeline, { format: "mermaid_gantt" }),
       mermaid_timeline: renderTimeline(validatedTimeline, { format: "mermaid_timeline" }),
@@ -42,11 +47,15 @@ export function validateTimeline(timeline = {}) {
   const issues = [];
 
   for (const item of normalized.items) {
-    if (!item.start) {
+    if (item.exact_date_needed) {
+      gaps.push(makeGap(item, "exact_date", "Exact date needed before rendering this fuzzy time window."));
+    }
+
+    if (!item.start && !item.time_window) {
       gaps.push(makeGap(item, "start", "Missing start date. Ask for the planned start date instead of inferring it."));
     }
 
-    if (!item.end && !item.duration && item.type !== "milestone") {
+    if (!item.end && !item.duration && !item.time_window && item.type !== "milestone") {
       gaps.push(makeGap(item, "end", "Missing end date or duration for a non-milestone item."));
     }
 
@@ -142,11 +151,12 @@ export function refineTimeline(timeline = {}, refinement = {}) {
   };
 }
 
-function parseSource(source, index, importedAssumptions) {
+function parseSource(source, index, importedAssumptions, input, noiseReport) {
   const normalizedSource = {
     id: source?.id || `source-${index + 1}`,
     type: source?.type || "text",
-    content: source?.content ?? ""
+    content: source?.content ?? "",
+    path: source?.path || source?.file_path || source?.filePath
   };
 
   if (normalizedSource.type === "json") {
@@ -155,6 +165,10 @@ function parseSource(source, index, importedAssumptions) {
 
   if (normalizedSource.type === "csv") {
     return parseCsvSource(normalizedSource);
+  }
+
+  if (normalizedSource.type === "markdown") {
+    return parseMarkdownSource(normalizedSource, input?.markdown, noiseReport);
   }
 
   return parseTextSource(normalizedSource);
@@ -195,6 +209,85 @@ function parseTextSource(source) {
     .split(/\r?\n/)
     .map((line, index) => parseTextLine(line, source.id, index + 1))
     .filter(Boolean);
+}
+
+function parseMarkdownSource(source, markdownOptions = {}, noiseReport = createNoiseReport()) {
+  const lines = String(source.content).split(/\r?\n/);
+  const allowedHeadings = getAllowedMarkdownHeadings(markdownOptions);
+  const hasAllowedHeadings = markdownHasAllowedHeadings(lines, allowedHeadings);
+  const items = [];
+  let currentHeading;
+  let inFrontmatter = markdownOptions?.ignoreFrontmatter === false ? false : lines[0]?.trim() === "---";
+
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index];
+    const trimmed = line.trim();
+
+    if (inFrontmatter) {
+      noiseReport.ignored.frontmatter_lines += 1;
+      if (index > 0 && trimmed === "---") inFrontmatter = false;
+      continue;
+    }
+
+    const heading = parseMarkdownHeading(trimmed);
+    if (heading) {
+      currentHeading = heading;
+      continue;
+    }
+
+    if (!trimmed) continue;
+
+    const inAllowedSection = !hasAllowedHeadings || allowedHeadings.has(normalizeHeading(currentHeading));
+    if (!inAllowedSection) {
+      noiseReport.ignored.prose_lines += 1;
+      continue;
+    }
+
+    if (isMarkdownTableLine(trimmed)) {
+      const table = parseMarkdownTable(lines, index);
+      if (!table) {
+        noiseReport.ignored.prose_lines += 1;
+        continue;
+      }
+
+      for (const row of table.rows) {
+        const item = markdownRecordToItem(row.record, currentHeading);
+        if (!item) {
+          noiseReport.ignored.table_rows_without_dates += row.hasDate ? 0 : 1;
+          continue;
+        }
+
+        if (!row.hasDate) noiseReport.ignored.table_rows_without_dates += 1;
+        items.push(
+          normalizeItem(item, [
+            compactObject({
+              sourceId: source.id,
+              path: source.path,
+              heading: currentHeading,
+              tableRow: row.tableRow,
+              line: row.line,
+              text: row.text
+            })
+          ])
+        );
+      }
+
+      index = table.endIndex;
+      continue;
+    }
+
+    const parsedLine = parseTextLine(line, source.id, index + 1);
+    if (parsedLine) {
+      parsedLine.source_refs = parsedLine.source_refs.map((sourceRef) =>
+        compactObject({ ...sourceRef, path: source.path, heading: currentHeading })
+      );
+      items.push(parsedLine);
+    } else {
+      noiseReport.ignored.prose_lines += 1;
+    }
+  }
+
+  return items;
 }
 
 function parseTextLine(line, sourceId, lineNumber) {
@@ -292,6 +385,31 @@ function csvRecordToItem(record) {
   };
 }
 
+function markdownRecordToItem(record, heading) {
+  const title =
+    valueFromRecord(record, ["item", "follow_up", "follow-up", "followup", "task", "milestone", "risk", "blocker"]) ||
+    valueFromRecord(record, ["title", "name"]);
+  if (!title) return null;
+
+  const target = valueFromRecord(record, ["target", "date", "when", "time_window", "window"]);
+  const dates = extractExactDates(target);
+  const fuzzyTarget = target && dates.length === 0 ? target : undefined;
+
+  return {
+    title,
+    type: normalizeHeading(heading) === "milestones" || record.type === "milestone" ? "milestone" : "task",
+    start: dates[0],
+    end: dates[1],
+    owner: valueFromRecord(record, ["owner", "assignee"]),
+    status: valueFromRecord(record, ["status"]) || "planned",
+    dependencies: valueFromRecord(record, ["dependencies", "depends_on", "depends on"]),
+    time_window: fuzzyTarget,
+    date_text: fuzzyTarget,
+    exact_date_needed: Boolean(fuzzyTarget),
+    confidence: target ? 0.7 : 0.55
+  };
+}
+
 function normalizeTimeline(timeline = {}) {
   const items = Array.isArray(timeline.items)
     ? timeline.items.map((item) => normalizeItem(item, item.source_refs))
@@ -321,6 +439,9 @@ function normalizeItem(item = {}, sourceRefs = []) {
     start: blankToUndefined(item.start),
     end: blankToUndefined(item.end),
     duration: blankToUndefined(item.duration),
+    time_window: blankToUndefined(item.time_window),
+    date_text: blankToUndefined(item.date_text),
+    exact_date_needed: Boolean(item.exact_date_needed),
     owner: blankToUndefined(item.owner),
     status: blankToUndefined(item.status) || "unknown",
     dependencies: dependencies.map((dependency) => String(dependency).trim()).filter(Boolean),
@@ -501,6 +622,115 @@ function blankToUndefined(value) {
   if (value === undefined || value === null) return undefined;
   const normalized = String(value).trim();
   return normalized === "" ? undefined : normalized;
+}
+
+function createNoiseReport() {
+  return {
+    ignored: {
+      frontmatter_lines: 0,
+      prose_lines: 0,
+      table_rows_without_dates: 0
+    }
+  };
+}
+
+function getAllowedMarkdownHeadings(options = {}) {
+  const sections = Array.isArray(options?.sections) && options.sections.length > 0
+    ? options.sections
+    : DEFAULT_MARKDOWN_SECTIONS;
+  return new Set(sections.map((section) => normalizeHeading(section)));
+}
+
+function markdownHasAllowedHeadings(lines, allowedHeadings) {
+  return lines.some((line) => {
+    const heading = parseMarkdownHeading(line.trim());
+    return heading && allowedHeadings.has(normalizeHeading(heading));
+  });
+}
+
+function parseMarkdownHeading(line) {
+  const match = line.match(/^#{1,6}\s+(.+?)\s*#*$/);
+  return match ? match[1].trim() : undefined;
+}
+
+function normalizeHeading(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/&/g, "and")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+function isMarkdownTableLine(line) {
+  return /^\|.*\|\s*$/.test(line);
+}
+
+function parseMarkdownTable(lines, startIndex) {
+  const header = parseMarkdownTableCells(lines[startIndex]);
+  const separator = parseMarkdownTableCells(lines[startIndex + 1]);
+  if (header.length === 0 || !isMarkdownSeparatorRow(separator)) return null;
+
+  const headers = header.map((cell) => normalizeHeader(cell));
+  const rows = [];
+  let index = startIndex + 2;
+  let tableRow = 1;
+
+  while (index < lines.length && isMarkdownTableLine(lines[index].trim())) {
+    const cells = parseMarkdownTableCells(lines[index]);
+    const record = {};
+    headers.forEach((column, columnIndex) => {
+      record[column] = cells[columnIndex] ?? "";
+    });
+
+    const target = valueFromRecord(record, ["target", "date", "when", "time_window", "window"]);
+    rows.push({
+      record,
+      tableRow,
+      line: index + 1,
+      text: lines[index].trim(),
+      hasDate: extractExactDates(target).length > 0 || Boolean(blankToUndefined(target))
+    });
+    tableRow += 1;
+    index += 1;
+  }
+
+  return {
+    rows,
+    endIndex: index - 1
+  };
+}
+
+function parseMarkdownTableCells(line = "") {
+  const trimmed = String(line).trim();
+  if (!isMarkdownTableLine(trimmed)) return [];
+  return trimmed
+    .replace(/^\|/, "")
+    .replace(/\|$/, "")
+    .split("|")
+    .map((cell) => cell.trim());
+}
+
+function isMarkdownSeparatorRow(cells) {
+  return cells.length > 0 && cells.every((cell) => /^:?-{3,}:?$/.test(cell.trim()));
+}
+
+function valueFromRecord(record, names) {
+  for (const name of names) {
+    const normalized = normalizeHeader(name);
+    const value = blankToUndefined(record[normalized]);
+    if (value) return value;
+  }
+
+  return undefined;
+}
+
+function extractExactDates(value) {
+  return [...String(value || "").matchAll(DATE_PATTERN)].map((match) => match[0]);
+}
+
+function compactObject(value) {
+  return Object.fromEntries(Object.entries(value).filter(([, entry]) => entry !== undefined));
 }
 
 function escapeMermaidText(value) {

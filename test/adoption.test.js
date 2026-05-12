@@ -18,6 +18,8 @@ test("README gives a credible first-use path for AI-agent TPM adoption", () => {
   assert.match(readme, /Why not just ask ChatGPT or Mermaid\?/i);
   assert.match(readme, /Current limitations/i);
   assert.match(readme, /Npm package config/i);
+  assert.match(readme, /Markdown tables under those headings are parsed into items/i);
+  assert.match(readme, /noise_report\.ignored/i);
 });
 
 test("MCP setup and release docs cover local use, npm use, agent prompting, and publish checks", () => {
@@ -30,6 +32,7 @@ test("MCP setup and release docs cover local use, npm use, agent prompting, and 
   assert.match(release, /npm view timeline-truth/i);
   assert.match(release, /npm pack --dry-run/i);
   assert.match(release, /npm publish --access public/i);
+  assert.match(release, /Markdown ingestion/i);
 });
 
 for (const [name, sourcePath, sourceType, expectedPath] of EXAMPLE_CASES) {

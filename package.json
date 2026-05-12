@@ -18,7 +18,7 @@
   },
   "files": [
     "src",
-    "docs",
+    "docs/*.md",
     "examples",
     "README.md",
     "LICENSE"

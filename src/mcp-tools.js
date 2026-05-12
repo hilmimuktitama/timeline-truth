@@ -6,6 +6,7 @@ const SOURCE_SCHEMA = {
   additionalProperties: true,
   properties: {
     id: { type: "string", description: "Stable source identifier used in source_refs." },
+    path: { type: "string", description: "Optional file path to preserve in source_refs." },
     type: { type: "string", enum: ["text", "markdown", "csv", "json"], default: "text" },
     content: {
       description: "Pasted text/file content. JSON sources may pass a JSON string or object.",
@@ -42,6 +43,23 @@ export function listTimelineTools() {
             type: "array",
             minItems: 1,
             items: SOURCE_SCHEMA
+          },
+          markdown: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              sections: {
+                type: "array",
+                items: { type: "string" },
+                description:
+                  "Markdown headings to parse. Defaults to Timeline, Milestones, Next, Risks And Blockers, and Follow-Ups."
+              },
+              ignoreFrontmatter: {
+                type: "boolean",
+                default: true,
+                description: "Ignore YAML frontmatter before parsing Markdown content."
+              }
+            }
           }
         }
       }
@@ -108,7 +126,7 @@ export function listTimelineTools() {
 export function callTimelineTool(name, args = {}) {
   switch (name) {
     case "create_timeline":
-      return jsonContent(createTimeline({ sources: args.sources }));
+      return jsonContent(createTimeline({ sources: args.sources, markdown: args.markdown }));
     case "validate_timeline":
       return jsonContent(validateTimeline(args.timeline));
     case "render_timeline":
