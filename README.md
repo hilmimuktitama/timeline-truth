@@ -73,6 +73,49 @@ reviewable timeline:
 - render portable Mermaid and Markdown artifacts
 - stay small enough to run inside local agent workflows
 
+## How It Works
+
+Timeline Truth gives AI agents a deterministic timeline compiler and validator,
+so messy planning notes become traceable, reviewable timeline artifacts instead
+of confident guesses.
+
+```mermaid
+flowchart LR
+  user["TPM / PM / Eng Lead"] --> agent["AI Agent"]
+
+  docs["Messy Planning Inputs<br/>PRD notes<br/>Jira CSV<br/>Status update<br/>Launch checklist<br/>Markdown table"] --> agent
+
+  agent --> mcp["Timeline Truth MCP Server<br/>src/mcp-server.js"]
+  mcp --> tools["MCP Tools<br/>src/mcp-tools.js"]
+
+  tools --> create["create_timeline"]
+  tools --> validate["validate_timeline"]
+  tools --> render["render_timeline"]
+  tools --> refine["refine_timeline"]
+
+  create --> engine["Timeline Engine<br/>src/timeline.js"]
+  validate --> engine
+  render --> engine
+  refine --> engine
+
+  engine --> parser["Parse Inputs<br/>text / markdown / csv / json"]
+  parser --> normalize["Normalize Timeline Items"]
+  normalize --> evidence["Preserve source_refs<br/>where each item came from"]
+  normalize --> gaps["Flag Gaps<br/>missing dates<br/>missing owners<br/>fuzzy windows"]
+  normalize --> issues["Flag Issues<br/>unknown dependencies<br/>cycles<br/>bad sequencing"]
+  normalize --> outputs["Render Outputs<br/>Mermaid Gantt<br/>Mermaid Timeline<br/>Markdown"]
+
+  evidence --> review["Human Review"]
+  gaps --> review
+  issues --> review
+  outputs --> review
+
+  review --> benefit["Better Planning Conversations<br/>less guessing<br/>clear follow-ups<br/>traceable timeline<br/>agent output is easier to trust"]
+```
+
+This helps users move from scattered planning evidence to a timeline that can be
+checked, challenged, refined, and shared.
+
 ## Why not just ask ChatGPT or Mermaid?
 
 ChatGPT can draft a timeline, and Mermaid can render one. Timeline Truth does a
