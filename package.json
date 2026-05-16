@@ -1,6 +1,6 @@
 {
   "name": "timeline-truth",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Open-source MCP server for compiling messy project planning inputs into evidence-preserving timelines.",
   "author": "hilmimuktitama",
   "license": "MIT",

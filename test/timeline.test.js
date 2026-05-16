@@ -231,7 +231,12 @@ test("validateTimeline detects missing dates, circular dependencies, and ambiguo
   const result = validateTimeline(timeline);
 
   assert.ok(result.gaps.some((gap) => gap.itemTitle === "A" && gap.field === "start"));
-  assert.ok(result.gaps.some((gap) => gap.itemTitle === "Go live" && gap.field === "owner"));
+  assert.deepEqual(
+    result.gaps
+      .filter((gap) => gap.itemTitle === "Go live" && gap.field === "owner")
+      .map((gap) => gap.question),
+    ["Milestone ownership is ambiguous."]
+  );
   assert.ok(result.issues.some((issue) => issue.type === "circular_dependency"));
 });
 

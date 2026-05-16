@@ -63,11 +63,10 @@ export function validateTimeline(timeline = {}) {
     }
 
     if (!item.owner) {
-      gaps.push(makeGap(item, "owner", "Missing accountable owner."));
-    }
-
-    if (item.type === "milestone" && !item.owner) {
-      gaps.push(makeGap(item, "owner", "Milestone ownership is ambiguous."));
+      const ownerQuestion = item.type === "milestone"
+        ? "Milestone ownership is ambiguous."
+        : "Missing accountable owner.";
+      gaps.push(makeGap(item, "owner", ownerQuestion));
     }
   }
 

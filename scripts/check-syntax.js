@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 
 const files = [
+  ...listFiles("scripts", ".js"),
   ...listFiles("src", ".js"),
   ...listFiles("test", ".js")
 ];
