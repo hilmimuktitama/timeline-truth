@@ -13,6 +13,52 @@ confident rewrite.
 
 ## First Use
 
+### Easy Way: Ask Your Agent
+
+Tell your AI agent:
+
+```text
+let's use timeline-truth from https://github.com/hilmimuktitama/timeline-truth
+```
+
+The GitHub repo is the discovery source. After reading this README, your agent
+should install the stable npm package, add the MCP server to your local agent
+config, reload MCP if needed, and verify `create_timeline` is available.
+
+Your agent should handle the setup for you. Most users should not copy MCP JSON
+by hand. The agent-facing install checklist is in
+[docs/AI-AGENT-INSTALL.md](docs/AI-AGENT-INSTALL.md).
+
+Manual fallback/reference config:
+
+Use this only if your agent cannot edit MCP config automatically. In that case,
+ask the agent to tell you exactly where this JSON belongs in your current
+MCP-capable client.
+
+```json
+{
+  "mcpServers": {
+    "timeline-truth": {
+      "command": "npx",
+      "args": ["-y", "--package=timeline-truth", "timeline-truth-mcp"]
+    }
+  }
+}
+```
+
+After setup, paste your planning notes and ask your agent:
+
+```text
+Use the timeline-truth MCP server. Call create_timeline with these notes as a
+single source. Then summarize the timeline, list gaps and assumptions, and show
+the mermaid_gantt output. Do not infer missing dates, owners, or dependencies;
+use the tool gaps as follow-up questions.
+```
+
+The expected result is that your agent calls `create_timeline` for you and
+returns normalized timeline items, explicit gaps, assumptions, and portable
+Mermaid output. You do not need to manually run the MCP tool.
+
 Use it when your planning input looks like this:
 
 ```text
@@ -20,14 +66,6 @@ Discovery: 2026-06-01 to 2026-06-05 owner PM status planned
 API contract: starts 2026-06-06 duration 4d owner Platform depends on Discovery
 Checkout QA: owner QA depends on API contract
 Launch decision milestone on 2026-06-17 owner PM
-```
-
-Ask your agent:
-
-```text
-Use the timeline-truth MCP server. Call create_timeline with these notes as a
-single source. Then summarize the timeline, list gaps and assumptions, and show
-the mermaid_gantt output. Do not infer missing dates or owners.
 ```
 
 The server returns normalized items, gaps such as missing start/end dates, the

@@ -3,6 +3,43 @@
 Timeline Truth runs as a local stdio MCP server. It does not need network
 access, credentials, or hosted storage.
 
+## Generic MCP-Capable Agent
+
+Use this path when your local AI agent supports stdio MCP servers through an
+`mcpServers` config.
+
+For the self-install flow where a user asks an agent to use the GitHub repo,
+send the agent to [docs/AI-AGENT-INSTALL.md](AI-AGENT-INSTALL.md).
+
+Add the recommended package config to your agent:
+
+```json
+{
+  "mcpServers": {
+    "timeline-truth": {
+      "command": "npx",
+      "args": ["-y", "--package=timeline-truth", "timeline-truth-mcp"]
+    }
+  }
+}
+```
+
+Reload or restart the agent if it does not pick up MCP server changes
+automatically. After that, use the agent normally: paste planning notes and ask
+it to use Timeline Truth. You do not need to manually invoke
+`timeline-truth-mcp` during normal use.
+
+Ask your agent to call `create_timeline`, inspect the returned gaps and
+assumptions, and render `mermaid_gantt` output for review. A good starter prompt
+is:
+
+```text
+Use the timeline-truth MCP server. Call create_timeline with these notes as a
+single source. Then summarize the timeline, list gaps and assumptions, and show
+the mermaid_gantt output. Do not infer missing dates, owners, or dependencies;
+use the tool gaps as follow-up questions.
+```
+
 ## Local Checkout
 
 Use this while evaluating the repo or contributing changes:
@@ -73,8 +110,8 @@ Paste planning notes into your agent with this instruction:
 ```text
 Use the timeline-truth MCP server. Call create_timeline with these notes as a
 single source. Then summarize the timeline, list gaps and assumptions, and show
-the mermaid_gantt output. Do not infer missing dates or owners; use the gaps
-from the tool as follow-up questions.
+the mermaid_gantt output. Do not infer missing dates, owners, or dependencies;
+use the tool gaps as follow-up questions.
 ```
 
 Useful follow-up calls:
