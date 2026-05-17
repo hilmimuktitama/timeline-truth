@@ -1,6 +1,6 @@
 # Timeline Truth
 
-Status: v0.1.0 public release. MIT licensed. Requires Node.js 22 or newer.
+> Work in progress: this repository is still experimental and the public MCP contract may change while the timeline workflow is being validated.
 
 Timeline Truth is a local MCP server for AI-agent TPM workflows: paste PRD/Jira/status notes,
 CSV exports, launch checklists, or rough planning text; get timeline JSON,
@@ -260,11 +260,6 @@ npm pack --dry-run
 ```
 
 See [docs/RELEASE.md](docs/RELEASE.md) before publishing.
-
-## Contributing
-
-Contributions are welcome when they keep the project narrow and evidence-first.
-Before adding features, check [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 
