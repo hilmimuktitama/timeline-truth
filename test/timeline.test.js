@@ -263,3 +263,54 @@ test("refineTimeline applies edits while preserving evidence and assumptions", (
   assert.deepEqual(refined.items[0].source_refs, [{ sourceId: "notes", line: 4 }]);
   assert.ok(refined.assumptions.includes("No dates were inferred."));
 });
+
+test("createTimeline returns a versioned contract with parser diagnostics", () => {
+  const result = createTimeline({
+    sources: [
+      {
+        id: "status",
+        type: "text",
+        content: "Launch decision milestone on June 17, 2026 owner PM\nGenerated: tool output"
+      }
+    ]
+  });
+
+  assert.equal(result.timeline.kind, "timeline");
+  assert.equal(result.timeline.schema_version, "0.2.0");
+  assert.equal(result.diagnostics.sources.length, 1);
+  assert.equal(result.diagnostics.sources[0].parsed_items, 1);
+  assert.equal(result.diagnostics.ignored.metadata_lines, 1);
+  assert.equal(result.timeline.items[0].start, "2026-06-17");
+});
+
+test("createTimeline transforms profiled Markdown note tables into timeline rows", () => {
+  const result = createTimeline({
+    sources: [
+      {
+        id: "estimate-notes",
+        type: "markdown",
+        profile: "estimate_table",
+        content: [
+          "Generated: May 17, 2026",
+          "Project: Atlas CRM Cleanup",
+          "",
+          "| Note Date | Chunk | Estimated Datetime Note |",
+          "| --- | --- | --- |",
+          "| Apr 8, 2026 | Estimate 1 | Original committed delivery datetime is Apr 29, 2026, 17:00 ICT. |",
+          "| May 17, 2026 | Estimate 3 | Forecast changes again to June 1, 2026, 17:00 ICT. |"
+        ].join("\n")
+      }
+    ]
+  });
+
+  assert.deepEqual(
+    result.timeline.items.map((item) => [item.title, item.start]),
+    [
+      ["Atlas CRM Cleanup Estimate 1", "2026-04-29"],
+      ["Atlas CRM Cleanup Estimate 3", "2026-06-01"]
+    ]
+  );
+  assert.equal(result.diagnostics.sources[0].profile, "estimate_table");
+  assert.equal(result.diagnostics.sources[0].parsed_items, 2);
+  assert.equal(result.diagnostics.ignored.metadata_lines, 1);
+});

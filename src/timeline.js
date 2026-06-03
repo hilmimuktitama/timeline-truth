@@ -1,5 +1,38 @@
 const DATE_PATTERN = /\b\d{4}-\d{2}-\d{2}\b/g;
 const DEFAULT_MARKDOWN_SECTIONS = ["Timeline", "Milestones", "Next", "Risks And Blockers", "Follow-Ups"];
+const SCHEMA_VERSION = "0.2.0";
+const METADATA_LINE_PATTERN = /^(?:generated|timezone|time\s*zone|package|version|created|updated|last\s+updated)\s*:/i;
+const PROJECT_HEADER_PATTERN = /^project\s*:\s*(.+)$/i;
+const NOTE_TABLE_PROFILES = new Set(["estimate_table", "objective_table", "progress_table"]);
+const TARGET_NOTE_PATTERN = /\b(?:committed|delivery|deliver|forecast|target|expectation|estimated|completion|complete)\b/i;
+const MONTHS = new Map([
+  ["jan", "01"],
+  ["january", "01"],
+  ["feb", "02"],
+  ["february", "02"],
+  ["mar", "03"],
+  ["march", "03"],
+  ["apr", "04"],
+  ["april", "04"],
+  ["may", "05"],
+  ["jun", "06"],
+  ["june", "06"],
+  ["jul", "07"],
+  ["july", "07"],
+  ["aug", "08"],
+  ["august", "08"],
+  ["sep", "09"],
+  ["sept", "09"],
+  ["september", "09"],
+  ["oct", "10"],
+  ["october", "10"],
+  ["nov", "11"],
+  ["november", "11"],
+  ["dec", "12"],
+  ["december", "12"]
+]);
+const NATURAL_DATE_PATTERN =
+  /\b(Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:t|tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\s+(\d{1,2})(?:st|nd|rd|th)?(?:,)?\s+(\d{4})(?:,\s*\d{1,2}:\d{2}\s*[A-Z]{2,5})?\b/gi;
 
 export function createTimeline(input = {}) {
   const sources = Array.isArray(input.sources) ? input.sources : [];
@@ -32,6 +65,7 @@ export function createTimeline(input = {}) {
     assumptions: validatedTimeline.assumptions,
     gaps: validatedTimeline.gaps,
     issues: validation.issues,
+    diagnostics: noiseReport,
     noise_report: noiseReport,
     renders: {
       mermaid_gantt: renderTimeline(validatedTimeline, { format: "mermaid_gantt" }),
@@ -155,23 +189,39 @@ function parseSource(source, index, importedAssumptions, input, noiseReport) {
   const normalizedSource = {
     id: source?.id || `source-${index + 1}`,
     type: source?.type || "text",
+    profile: source?.profile || "unknown",
+    source_system: source?.source_system,
     content: source?.content ?? "",
     path: source?.path || source?.file_path || source?.filePath
   };
 
+  const before = snapshotIgnored(noiseReport);
+  let parsed;
   if (normalizedSource.type === "json") {
-    return parseJsonSource(normalizedSource, importedAssumptions);
+    parsed = parseJsonSource(normalizedSource, importedAssumptions);
+  } else if (normalizedSource.type === "csv") {
+    parsed = parseCsvSource(normalizedSource);
+  } else if (normalizedSource.type === "markdown") {
+    const prepared = {
+      ...normalizedSource,
+      content: cleanMarkdownForTimeline(normalizedSource.content, {
+        profile: normalizedSource.profile
+      })
+    };
+    parsed = parseMarkdownSource(prepared, input?.markdown, noiseReport);
+  } else {
+    parsed = parseTextSource(normalizedSource, noiseReport);
   }
 
-  if (normalizedSource.type === "csv") {
-    return parseCsvSource(normalizedSource);
-  }
-
-  if (normalizedSource.type === "markdown") {
-    return parseMarkdownSource(normalizedSource, input?.markdown, noiseReport);
-  }
-
-  return parseTextSource(normalizedSource);
+  noiseReport.sources.push({
+    id: normalizedSource.id,
+    type: normalizedSource.type,
+    profile: normalizedSource.profile,
+    source_system: normalizedSource.source_system,
+    parsed_items: parsed.length,
+    ignored: diffIgnored(before, noiseReport.ignored)
+  });
+  return parsed;
 }
 
 function parseJsonSource(source, importedAssumptions) {
@@ -204,10 +254,16 @@ function parseCsvSource(source) {
   });
 }
 
-function parseTextSource(source) {
+function parseTextSource(source, noiseReport = createNoiseReport()) {
   return String(source.content)
     .split(/\r?\n/)
-    .map((line, index) => parseTextLine(line, source.id, index + 1))
+    .map((line, index) => {
+      if (isMetadataLine(line)) {
+        noiseReport.ignored.metadata_lines += 1;
+        return null;
+      }
+      return parseTextLine(line, source.id, index + 1);
+    })
     .filter(Boolean);
 }
 
@@ -237,6 +293,11 @@ function parseMarkdownSource(source, markdownOptions = {}, noiseReport = createN
 
     if (!trimmed) continue;
 
+    if (isMetadataLine(trimmed)) {
+      noiseReport.ignored.metadata_lines += 1;
+      continue;
+    }
+
     const inAllowedSection = !hasAllowedHeadings || allowedHeadings.has(normalizeHeading(currentHeading));
     if (!inAllowedSection) {
       noiseReport.ignored.prose_lines += 1;
@@ -246,7 +307,7 @@ function parseMarkdownSource(source, markdownOptions = {}, noiseReport = createN
     if (isMarkdownTableLine(trimmed)) {
       const table = parseMarkdownTable(lines, index);
       if (!table) {
-        noiseReport.ignored.prose_lines += 1;
+        noiseReport.ignored.unsupported_table_rows += 1;
         continue;
       }
 
@@ -291,7 +352,7 @@ function parseMarkdownSource(source, markdownOptions = {}, noiseReport = createN
 }
 
 function parseTextLine(line, sourceId, lineNumber) {
-  const trimmed = normalizePlanningLine(line);
+  const trimmed = normalizePlanningLine(normalizeNaturalDateText(line));
   if (!trimmed) return null;
 
   const dates = [...trimmed.matchAll(DATE_PATTERN)].map((match) => match[0]);
@@ -320,6 +381,8 @@ function parseTextLine(line, sourceId, lineNumber) {
 function normalizePlanningLine(line) {
   const trimmed = String(line).trim();
   if (/^#{1,6}\s+/.test(trimmed)) return "";
+  if (isMetadataLine(trimmed)) return "";
+  if (PROJECT_HEADER_PATTERN.test(trimmed)) return "";
 
   return trimmed
     .replace(/^[-*]\s+\[[ xX]\]\s+/, "")
@@ -417,6 +480,9 @@ function normalizeTimeline(timeline = {}) {
   const milestones = items.filter((item) => item.type === "milestone");
 
   return {
+    kind: timeline.kind || "timeline",
+    schema_version: timeline.schema_version || SCHEMA_VERSION,
+    version: timeline.version || "0.2.0",
     items,
     milestones,
     assumptions: Array.isArray(timeline.assumptions) ? [...timeline.assumptions] : [],
@@ -624,13 +690,158 @@ function blankToUndefined(value) {
   return normalized === "" ? undefined : normalized;
 }
 
+function isMetadataLine(line) {
+  const trimmed = String(line || "").trim();
+  return METADATA_LINE_PATTERN.test(trimmed) || PROJECT_HEADER_PATTERN.test(trimmed);
+}
+
+function normalizeNaturalDateText(text = "") {
+  return String(text).replace(NATURAL_DATE_PATTERN, (_match, monthName, day, year) => {
+    const month = MONTHS.get(String(monthName).toLowerCase());
+    if (!month) return _match;
+    return `${year}-${month}-${String(day).padStart(2, "0")}`;
+  });
+}
+
+function cleanMarkdownForTimeline(content = "", { profile = "unknown" } = {}) {
+  const lines = String(content).split(/\r?\n/);
+  const cleaned = [];
+  let currentProject = extractProjectName(content);
+
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index];
+    const trimmed = line.trim();
+    const projectMatch = trimmed.match(PROJECT_HEADER_PATTERN);
+    if (projectMatch) {
+      currentProject = projectMatch[1].trim();
+      continue;
+    }
+
+    if (METADATA_LINE_PATTERN.test(trimmed)) {
+      cleaned.push(line);
+      continue;
+    }
+
+    if (isMarkdownTableLine(trimmed) && isMarkdownSeparatorLine(lines[index + 1]?.trim())) {
+      const table = collectMarkdownTable(lines, index);
+      const transformed = transformMarkdownTable(table, { profile, project: currentProject });
+      cleaned.push(...(transformed.length > 0 ? transformed : table.lines.map(normalizeNaturalDateText)));
+      index = table.endIndex;
+      continue;
+    }
+
+    cleaned.push(normalizeNaturalDateText(line));
+  }
+
+  return cleaned.join("\n");
+}
+
+function transformMarkdownTable(table, { profile, project }) {
+  if (NOTE_TABLE_PROFILES.has(profile)) {
+    return transformProfileNoteTable(table, { project });
+  }
+  return transformProjectDateTable(table);
+}
+
+function transformProfileNoteTable(table, { project }) {
+  const headers = parseMarkdownTableCells(table.lines[0]);
+  const rows = table.lines.slice(2).map(parseMarkdownTableCells);
+  const noteIndex = headers.findIndex((header) =>
+    !/^note\s*date$/i.test(header) && /\b(?:note|status|progress|objective|estimate|datetime)\b/i.test(header)
+  );
+  const chunkIndex = headers.findIndex((header) => /\bchunk\b/i.test(header));
+  if (noteIndex === -1 || chunkIndex === -1) return [];
+
+  const titlePrefix = blankToUndefined(project) || "Project";
+  const transformedRows = [];
+  for (const row of rows) {
+    const note = blankToUndefined(row[noteIndex]) || "";
+    if (!TARGET_NOTE_PATTERN.test(note)) continue;
+    const target = extractFirstDateIso(note);
+    if (!target) continue;
+    transformedRows.push(formatMarkdownTableRow([`${titlePrefix} ${row[chunkIndex] || "Note"}`, target, "planned"]));
+  }
+
+  if (transformedRows.length === 0) return [];
+  return [
+    formatMarkdownTableRow(["Title", "Target", "Status"]),
+    formatMarkdownTableRow(["---", "---", "---"]),
+    ...transformedRows
+  ];
+}
+
+function transformProjectDateTable(table) {
+  const headers = parseMarkdownTableCells(table.lines[0]);
+  const hasTitle = headers.some((header) => /^(?:project|name|title|item|task|milestone)$/i.test(header.trim()));
+  const hasDate = headers.some((header) => /\b(?:estimated\s+datetime|estimated\s+date|completion|complete\s+by|target|target\s+date|date|datetime|when)\b/i.test(header.trim()));
+  if (!hasTitle || !hasDate) return [];
+
+  const normalizedHeaders = headers.map((header) => {
+    if (/^(?:project|name)$/i.test(header.trim())) return "Title";
+    if (/\b(?:estimated\s+datetime|estimated\s+date|completion|complete\s+by|target|target\s+date|date|datetime|when)\b/i.test(header.trim())) return "Target";
+    return header;
+  });
+
+  return [
+    formatMarkdownTableRow(normalizedHeaders),
+    table.lines[1],
+    ...table.lines.slice(2).map((line) => formatMarkdownTableRow(parseMarkdownTableCells(line).map(normalizeNaturalDateText)))
+  ];
+}
+
+function collectMarkdownTable(lines, startIndex) {
+  const tableLines = [];
+  let index = startIndex;
+  while (index < lines.length && isMarkdownTableLine(lines[index].trim())) {
+    tableLines.push(lines[index]);
+    index += 1;
+  }
+  return { lines: tableLines, endIndex: index - 1 };
+}
+
+function formatMarkdownTableRow(cells) {
+  return `| ${cells.join(" | ")} |`;
+}
+
+function isMarkdownSeparatorLine(line = "") {
+  return /^\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)+\|?$/.test(line);
+}
+
+function extractProjectName(content = "") {
+  for (const line of String(content).split(/\r?\n/)) {
+    const match = line.trim().match(PROJECT_HEADER_PATTERN);
+    if (match) return match[1].trim();
+  }
+  return undefined;
+}
+
+function extractFirstDateIso(text = "") {
+  return normalizeNaturalDateText(text).match(DATE_PATTERN)?.[0];
+}
+
+function snapshotIgnored(noiseReport) {
+  return { ...noiseReport.ignored };
+}
+
+function diffIgnored(before, after) {
+  const diff = {};
+  for (const key of Object.keys(after)) {
+    diff[key] = after[key] - (before[key] ?? 0);
+  }
+  return diff;
+}
+
 function createNoiseReport() {
   return {
+    sources: [],
     ignored: {
       frontmatter_lines: 0,
       prose_lines: 0,
-      table_rows_without_dates: 0
-    }
+      table_rows_without_dates: 0,
+      metadata_lines: 0,
+      unsupported_table_rows: 0
+    },
+    warnings: []
   };
 }
 

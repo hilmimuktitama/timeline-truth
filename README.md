@@ -6,6 +6,8 @@ Timeline Truth is a local MCP server for AI-agent TPM workflows: paste PRD/Jira/
 CSV exports, launch checklists, or rough planning text; get timeline JSON,
 validation gaps, assumptions, and Mermaid/Markdown renders.
 
+For general evidence + timeline + program-status review, prefer [`truth-tools`](https://github.com/hilmimuktitama/truth-tools) as the unified CLI/MCP entrypoint. Use `timeline-truth` directly when you only need timeline parsing, validation, refinement, and Mermaid/Markdown output.
+
 It is intentionally narrow. Timeline Truth does not invent missing dates,
 owners, or dependencies. It preserves `source_refs` and makes planning
 uncertainty visible so humans can review the timeline instead of trusting a
