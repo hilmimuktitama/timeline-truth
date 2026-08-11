@@ -7,6 +7,7 @@ All notable changes to Timeline Truth are documented here. Versions follow
 
 ### Changed
 
+- Fixed tarball-installed CLI symlinks so help, compile, and diff commands run.
 - Updated the direct `@modelcontextprotocol/sdk` dependency to `^1.30.0`.
 - Propagated the canonical `date-time` formats on source-reference timestamps
   and aligned contract drift checks and adoption tests.

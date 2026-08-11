@@ -1,5 +1,10 @@
 import assert from "node:assert/strict";
+import { mkdtempSync, rmSync, symlinkSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { execFileSync } from "node:child_process";
 import test from "node:test";
+import { fileURLToPath } from "node:url";
 
 import { formatCliResult, parseCliArgs, runTimelineCli } from "../src/cli.js";
 
@@ -107,4 +112,32 @@ test("runTimelineCli diff fails clearly on unparseable timeline files", () => {
     () => runTimelineCli({ argv: ["diff", "examples/baseline-plan.json", "README.md"] }),
     /Unable to parse timeline file "README.md" as JSON/
   );
+});
+
+test("CLI runs through a symlink for help, compile, and diff", () => {
+  const directory = mkdtempSync(join(tmpdir(), "timeline-truth-cli-"));
+  const link = join(directory, "timeline-truth");
+
+  try {
+    symlinkSync(new URL("../src/cli.js", import.meta.url), link);
+
+    const help = execFileSync(process.execPath, [link, "--help"], { encoding: "utf8" });
+    assert.match(help, /^Usage: timeline-truth/m);
+
+    const compile = execFileSync(process.execPath, [link, "--format", "markdown"], {
+      encoding: "utf8",
+      input: "Discovery: 2026-06-01 to 2026-06-05 owner TPM"
+    });
+    assert.match(compile, /## Timeline/);
+    assert.match(compile, /Discovery/);
+
+    const diff = execFileSync(
+      process.execPath,
+      [link, "diff", "examples/baseline-plan.json", "examples/current-plan.json", "--format", "json"],
+      { cwd: fileURLToPath(new URL("..", import.meta.url)), encoding: "utf8" }
+    );
+    assert.equal(JSON.parse(diff).schema_version, "0.3.0");
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
 });
