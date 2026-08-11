@@ -1,0 +1,76 @@
+{
+  "schema_version": "0.3.0",
+  "kind": "timeline",
+  "items": [
+    {
+      "id": "discovery",
+      "title": "Discovery",
+      "type": "task",
+      "start": "2026-06-01",
+      "end": "2026-06-05",
+      "owner": "TPM",
+      "status": "planned",
+      "dependencies": [],
+      "evidence_grade": "exact",
+      "evidence_reason": "Exact date evidence (YYYY-MM-DD) found in source text.",
+      "source_refs": [{ "sourceId": "current-plan", "line": 3 }]
+    },
+    {
+      "id": "api-contract",
+      "title": "API contract",
+      "type": "task",
+      "start": "2026-06-06",
+      "end": "2026-06-14",
+      "owner": "Platform",
+      "status": "planned",
+      "dependencies": ["Discovery"],
+      "evidence_grade": "exact",
+      "evidence_reason": "Exact date evidence (YYYY-MM-DD) found in source text.",
+      "source_refs": [{ "sourceId": "current-plan", "line": 4 }]
+    },
+    {
+      "id": "checkout-qa",
+      "title": "Checkout QA",
+      "type": "task",
+      "start": "2026-06-15",
+      "end": "2026-06-17",
+      "owner": "QE",
+      "status": "active",
+      "dependencies": ["API contract"],
+      "evidence_grade": "exact",
+      "evidence_reason": "Exact date evidence (YYYY-MM-DD) found in source text.",
+      "source_refs": [{ "sourceId": "current-plan", "line": 5 }]
+    },
+    {
+      "id": "launch-decision",
+      "title": "Launch decision",
+      "type": "milestone",
+      "start": "2026-06-18",
+      "owner": "PM",
+      "status": "planned",
+      "dependencies": ["Checkout QA"],
+      "evidence_grade": "exact",
+      "evidence_reason": "Exact date evidence (YYYY-MM-DD) found in source text.",
+      "source_refs": [{ "sourceId": "current-plan", "line": 6 }]
+    },
+    {
+      "id": "release-notes",
+      "title": "Release notes",
+      "type": "task",
+      "start": "2026-06-13",
+      "end": "2026-06-15",
+      "owner": "SRE",
+      "status": "planned",
+      "dependencies": ["API contract"],
+      "evidence_grade": "exact",
+      "evidence_reason": "Exact date evidence (YYYY-MM-DD) found in source text.",
+      "source_refs": [{ "sourceId": "current-plan", "line": 7 }]
+    }
+  ],
+  "assumptions": [
+    "No dates were inferred. Missing dates are reported as gaps for agent or user follow-up.",
+    "Critical path is not computed: it cannot be determined defensibly when dates or durations are missing."
+  ],
+  "gaps": [],
+  "issues": []
+}

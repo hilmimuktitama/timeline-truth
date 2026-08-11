@@ -1,0 +1,9 @@
+# Default code owners for the repository.
+* @hilmimuktitama
+
+# Release-critical files need the maintainer's review.
+package.json       @hilmimuktitama
+package-lock.json  @hilmimuktitama
+schemas/           @hilmimuktitama
+src/               @hilmimuktitama
+.github/workflows/ @hilmimuktitama

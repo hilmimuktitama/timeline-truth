@@ -1,0 +1,60 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Verify (Node ${{ matrix.node-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: [22, 24]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: npm
+
+      - name: Clean install
+        run: npm ci
+
+      - name: Dependency audit
+        run: npm audit --audit-level=high
+
+      - name: Tests
+        run: npm test
+
+      - name: Syntax check
+        run: npm run check
+
+      - name: Contract and drift verification
+        run: npm run contracts:verify
+
+      - name: Synthetic regression/evaluation suite
+        run: npm run eval
+
+      - name: Execute CLI examples and schedule diff
+        run: |
+          node src/cli.js examples/launch-checklist.md --type markdown --format review > example-review.md
+          node src/cli.js examples/status-update.md --type markdown --format markdown > example-status.md
+          node src/cli.js diff examples/baseline-plan.json examples/current-plan.json --format json > diff.json
+          node src/cli.js diff examples/baseline-plan.json examples/current-plan.json --format markdown > diff.md
+          test -s example-review.md
+          test -s example-status.md
+          test -s diff.json
+          test -s diff.md
+          grep -q "Critical path is not computed" diff.md
+
+      - name: Package dry run
+        run: npm pack --dry-run

@@ -1,0 +1,287 @@
+{
+  "cases": [
+    {
+      "id": "prd-snippet",
+      "name": "PRD snippet (example fixture)",
+      "sourcePath": "examples/prd-snippet.md",
+      "sourceType": "markdown",
+      "expected": {
+        "itemTitles": ["Discovery", "API contract", "Checkout QA", "Launch decision"],
+        "gaps": [
+          { "itemTitle": "Checkout QA", "field": "start" },
+          { "itemTitle": "Checkout QA", "field": "end" }
+        ],
+        "issues": [],
+        "evidenceGrades": {
+          "Discovery": "exact",
+          "API contract": "exact",
+          "Checkout QA": "missing",
+          "Launch decision": "exact"
+        }
+      }
+    },
+    {
+      "id": "jira-export",
+      "name": "Jira CSV export (example fixture)",
+      "sourcePath": "examples/jira-export.csv",
+      "sourceType": "csv",
+      "expected": {
+        "itemTitles": ["Discovery", "Backend API", "Beta milestone", "Data migration"],
+        "gaps": [
+          { "itemTitle": "Backend API", "field": "end" },
+          { "itemTitle": "Data migration", "field": "start" },
+          { "itemTitle": "Data migration", "field": "end" }
+        ],
+        "issues": [],
+        "evidenceGrades": {
+          "Discovery": "exact",
+          "Backend API": "exact",
+          "Beta milestone": "exact",
+          "Data migration": "missing"
+        }
+      }
+    },
+    {
+      "id": "launch-checklist",
+      "name": "Launch checklist (example fixture)",
+      "sourcePath": "examples/launch-checklist.md",
+      "sourceType": "markdown",
+      "expected": {
+        "itemTitles": ["Scope review", "Production readiness", "Legal approval", "Go live"],
+        "gaps": [
+          { "itemTitle": "Legal approval", "field": "start" },
+          { "itemTitle": "Legal approval", "field": "end" }
+        ],
+        "issues": [],
+        "evidenceGrades": {
+          "Scope review": "exact",
+          "Production readiness": "exact",
+          "Legal approval": "missing",
+          "Go live": "exact"
+        }
+      }
+    },
+    {
+      "id": "status-update",
+      "name": "Status update (example fixture)",
+      "sourcePath": "examples/status-update.md",
+      "sourceType": "markdown",
+      "expected": {
+        "itemTitles": ["Mobile beta", "Partner review", "Rollout", "Analytics setup"],
+        "gaps": [
+          { "itemTitle": "Partner review", "field": "owner" },
+          { "itemTitle": "Rollout", "field": "start" },
+          { "itemTitle": "Rollout", "field": "end" },
+          { "itemTitle": "Analytics setup", "field": "owner" }
+        ],
+        "issues": [],
+        "evidenceGrades": {
+          "Mobile beta": "exact",
+          "Partner review": "exact",
+          "Rollout": "missing",
+          "Analytics setup": "exact"
+        }
+      }
+    },
+    {
+      "id": "natural-date-text",
+      "name": "Natural-language date conversion",
+      "sourceType": "text",
+      "content": "Launch decision milestone on June 17, 2026 owner PM\nGenerated: tool output",
+      "expected": {
+        "itemTitles": ["Launch decision"],
+        "gaps": [],
+        "issues": [],
+        "evidenceGrades": { "Launch decision": "derived" }
+      }
+    },
+    {
+      "id": "fuzzy-window-table",
+      "name": "Fuzzy window preserved as gap",
+      "sourceType": "markdown",
+      "content": "## Follow-Ups\n\n| Follow-Up | Owner | Target |\n| --- | --- | --- |\n| Confirm migration window | TPM | W2 July 2026 |",
+      "expected": {
+        "itemTitles": ["Confirm migration window"],
+        "gaps": [{ "itemTitle": "Confirm migration window", "field": "exact_date" }],
+        "issues": [],
+        "evidenceGrades": { "Confirm migration window": "fuzzy" }
+      }
+    },
+    {
+      "id": "circular-dependency",
+      "name": "Circular dependency detected",
+      "sourceType": "text",
+      "content": "Alpha: 2026-06-01 to 2026-06-02 owner TPM depends on Beta\nBeta: 2026-06-03 to 2026-06-04 owner TPM depends on Alpha",
+      "expected": {
+        "itemTitles": ["Alpha", "Beta"],
+        "gaps": [],
+        "issues": ["circular_dependency"],
+        "evidenceGrades": { "Alpha": "exact", "Beta": "exact" }
+      }
+    },
+    {
+      "id": "impossible-sequence",
+      "name": "Impossible sequence detected",
+      "sourceType": "text",
+      "content": "QA: starts 2026-06-04 duration 2d owner QA depends on Build API",
+      "expected": {
+        "itemTitles": ["QA"],
+        "gaps": [],
+        "issues": ["unknown_dependency"],
+        "evidenceGrades": { "QA": "exact" }
+      }
+    },
+    {
+      "id": "invalid-calendar-date",
+      "name": "True calendar dates enforced",
+      "sourceType": "text",
+      "content": "Sprint review: 2026-02-30 to 2026-03-02 owner TPM",
+      "expected": {
+        "itemTitles": ["Sprint review"],
+        "gaps": [],
+        "issues": ["invalid_date"],
+        "evidenceGrades": { "Sprint review": "exact" }
+      }
+    },
+    {
+      "id": "timezone-free-datetime",
+      "name": "Timezone-free datetime rejected",
+      "sourceType": "text",
+      "content": "Cutover: 2026-06-01T17:00:00 owner SRE",
+      "expected": {
+        "itemTitles": ["Cutover"],
+        "gaps": [],
+        "issues": ["timezone_free_datetime"],
+        "evidenceGrades": { "Cutover": "missing" }
+      }
+    },
+    {
+      "id": "timezone-datetime-accepted",
+      "name": "Datetime with timezone accepted as date",
+      "sourceType": "text",
+      "content": "Cutover: 2026-06-01T17:00:00+07:00 owner SRE",
+      "expected": {
+        "itemTitles": ["Cutover"],
+        "gaps": [],
+        "issues": [],
+        "evidenceGrades": { "Cutover": "exact" }
+      }
+    },
+    {
+      "id": "dangerous-fields",
+      "name": "Unsupported dangerous fields flagged",
+      "sourceType": "json",
+      "content": {
+        "items": [
+          {
+            "title": "Harmless task",
+            "start": "2026-06-01",
+            "end": "2026-06-02",
+            "__proto__": { "polluted": true },
+            "exec": "rm -rf /"
+          }
+        ]
+      },
+      "expected": {
+        "itemTitles": ["Harmless task"],
+        "gaps": [],
+        "issues": ["unsupported_dangerous_field"],
+        "evidenceGrades": { "Harmless task": "exact" }
+      }
+    },
+    {
+      "id": "start-after-end",
+      "name": "Start after end detected",
+      "sourceType": "text",
+      "content": "Build: 2026-06-05 to 2026-06-01 owner BE",
+      "expected": {
+        "itemTitles": ["Build"],
+        "gaps": [],
+        "issues": ["start_after_end"],
+        "evidenceGrades": { "Build": "exact" }
+      }
+    },
+    {
+      "id": "malformed-duration",
+      "name": "Malformed duration detected",
+      "sourceType": "json",
+      "content": {
+        "items": [
+          {
+            "title": "Deploy",
+            "start": "2026-06-01",
+            "duration": "5x"
+          }
+        ]
+      },
+      "expected": {
+        "itemTitles": ["Deploy"],
+        "gaps": [],
+        "issues": ["malformed_duration"],
+        "evidenceGrades": { "Deploy": "exact" }
+      }
+    },
+    {
+      "id": "duplicate-dependencies",
+      "name": "Duplicate dependencies detected",
+      "sourceType": "json",
+      "content": {
+        "items": [
+          {
+            "title": "Review",
+            "start": "2026-06-01",
+            "end": "2026-06-02",
+            "dependencies": ["Design", "Design"]
+          },
+          {
+            "title": "Design",
+            "start": "2026-05-30",
+            "end": "2026-05-31"
+          }
+        ]
+      },
+      "expected": {
+        "itemTitles": ["Review", "Design"],
+        "gaps": [],
+        "issues": ["duplicate_dependencies"],
+        "evidenceGrades": { "Review": "exact", "Design": "exact" }
+      }
+    },
+    {
+      "id": "missing-title",
+      "name": "Missing title detected",
+      "sourceType": "json",
+      "content": {
+        "items": [
+          {
+            "start": "2026-06-01",
+            "end": "2026-06-02"
+          }
+        ]
+      },
+      "expected": {
+        "itemTitles": ["Untitled"],
+        "gaps": [],
+        "issues": ["missing_title"],
+        "evidenceGrades": { "Untitled": "exact" }
+      }
+    },
+    {
+      "id": "duplicate-id",
+      "name": "Duplicate ids detected",
+      "sourceType": "json",
+      "content": {
+        "items": [
+          { "id": "same", "title": "First", "start": "2026-06-01" },
+          { "id": "same", "title": "Second", "start": "2026-06-02" }
+        ]
+      },
+      "expected": {
+        "itemTitles": ["First", "Second"],
+        "gaps": [],
+        "issues": ["duplicate_id"],
+        "evidenceGrades": { "First": "exact", "Second": "exact" }
+      }
+    }
+  ]
+}

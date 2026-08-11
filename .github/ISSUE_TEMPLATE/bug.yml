@@ -1,0 +1,56 @@
+name: Bug report
+description: Report a bug in Timeline Truth
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. Please include a minimal reproduction — the
+        input you passed to `create_timeline` or the CLI — so the team can
+        reproduce deterministically.
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Output of `npm ls timeline-truth` or the package.json version.
+      placeholder: e.g. 0.3.0
+    validations:
+      required: true
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Where did you hit the bug?
+      options:
+        - CLI (timeline-truth)
+        - MCP server (create_timeline / validate_timeline / render_timeline / refine_timeline / diff_timelines)
+        - Engine API (src/timeline.js)
+        - Docs / packaging
+    validations:
+      required: true
+  - type: textarea
+    id: input
+    attributes:
+      label: Input
+      description: Paste the planning text, Markdown, CSV, or JSON you used (minus secrets).
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: What did you expect the output to be?
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: What did you actually get? Include error messages and exit codes.
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: OS, Node.js version, npm version.
+      placeholder: e.g. macOS 15, Node 22.14.0, npm 10.9.2

@@ -1,11 +1,12 @@
 # Security Policy
 
-Timeline Truth is a local MCP server. It is designed to process planning
-content provided by the user or by an MCP client.
+Timeline Truth is a local MCP server and CLI. It is designed to process
+planning content provided by the user or by an MCP client.
 
 ## Supported Versions
 
-Security fixes target the latest version on the default branch.
+Security fixes target the latest version on the default branch. The current
+supported release line is 0.3.x.
 
 ## Reporting A Vulnerability
 
@@ -27,3 +28,12 @@ Include:
 - Do not execute user-provided planning content as code.
 - Do not infer, store, or transmit credentials from source material.
 - Treat source text as untrusted input.
+- JSON timeline items are scanned for unsupported dangerous fields
+  (`__proto__`, `prototype`, `constructor`, `eval`, `exec`, `command`, `shell`,
+  `script`, `spawn`, `require`, `import`, `fetch`, `child_process`, `os`);
+  matching fields are dropped and reported as `unsupported_dangerous_field`
+  issues. Never loosen this denylist without a security review.
+- Prototype-pollution vectors must be rejected or neutralized at parse time,
+  before any item field is read.
+- The package publishes with npm provenance and has no runtime dependency
+  beyond the MCP SDK.

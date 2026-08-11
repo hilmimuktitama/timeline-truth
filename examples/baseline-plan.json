@@ -1,0 +1,74 @@
+{
+  "schema_version": "0.3.0",
+  "kind": "timeline",
+  "items": [
+    {
+      "id": "discovery",
+      "title": "Discovery",
+      "type": "task",
+      "start": "2026-06-01",
+      "end": "2026-06-05",
+      "owner": "TPM",
+      "status": "planned",
+      "dependencies": [],
+      "evidence_grade": "exact",
+      "evidence_reason": "Exact date evidence (YYYY-MM-DD) found in source text.",
+      "source_refs": [{ "sourceId": "baseline-plan", "line": 3 }]
+    },
+    {
+      "id": "api-contract",
+      "title": "API contract",
+      "type": "task",
+      "start": "2026-06-06",
+      "end": "2026-06-09",
+      "owner": "Platform",
+      "status": "planned",
+      "dependencies": ["Discovery"],
+      "evidence_grade": "exact",
+      "evidence_reason": "Exact date evidence (YYYY-MM-DD) found in source text.",
+      "source_refs": [{ "sourceId": "baseline-plan", "line": 4 }]
+    },
+    {
+      "id": "checkout-qa",
+      "title": "Checkout QA",
+      "type": "task",
+      "start": "2026-06-10",
+      "end": "2026-06-12",
+      "owner": "QA",
+      "status": "planned",
+      "dependencies": ["API contract"],
+      "evidence_grade": "exact",
+      "evidence_reason": "Exact date evidence (YYYY-MM-DD) found in source text.",
+      "source_refs": [{ "sourceId": "baseline-plan", "line": 5 }]
+    },
+    {
+      "id": "launch-decision",
+      "title": "Launch decision",
+      "type": "milestone",
+      "start": "2026-06-17",
+      "owner": "PM",
+      "status": "planned",
+      "dependencies": ["Checkout QA"],
+      "evidence_grade": "exact",
+      "evidence_reason": "Exact date evidence (YYYY-MM-DD) found in source text.",
+      "source_refs": [{ "sourceId": "baseline-plan", "line": 6 }]
+    },
+    {
+      "id": "legal-approval",
+      "title": "Legal approval",
+      "type": "task",
+      "owner": "Legal",
+      "status": "planned",
+      "dependencies": ["Launch decision"],
+      "evidence_grade": "missing",
+      "evidence_reason": "No date evidence found; timeline placement needs human follow-up.",
+      "source_refs": [{ "sourceId": "baseline-plan", "line": 7 }]
+    }
+  ],
+  "assumptions": [
+    "No dates were inferred. Missing dates are reported as gaps for agent or user follow-up.",
+    "Critical path is not computed: it cannot be determined defensibly when dates or durations are missing."
+  ],
+  "gaps": [],
+  "issues": []
+}

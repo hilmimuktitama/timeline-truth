@@ -1,0 +1,148 @@
+{
+  "schema_version": "0.3.0",
+  "baseline": {
+    "label": "examples/baseline-plan.json",
+    "item_count": 5
+  },
+  "current": {
+    "label": "examples/current-plan.json",
+    "item_count": 5
+  },
+  "summary": {
+    "matched": 4,
+    "changed": 3,
+    "unchanged": 1,
+    "added": 1,
+    "removed": 1,
+    "new_issues": 1,
+    "ambiguous_matches": 0
+  },
+  "changes": [
+    {
+      "type": "end_moved",
+      "category": "schedule",
+      "field": "end",
+      "old": "2026-06-09",
+      "new": "2026-06-14",
+      "message": "\"API contract\" end moved from 2026-06-09 to 2026-06-14.",
+      "itemTitle": "API contract",
+      "itemId": "api-contract"
+    },
+    {
+      "type": "range_changed",
+      "category": "schedule",
+      "field": "range",
+      "old": "2026-06-10 to 2026-06-12",
+      "new": "2026-06-15 to 2026-06-17",
+      "message": "\"Checkout QA\" range changed from 2026-06-10 to 2026-06-12 to 2026-06-15 to 2026-06-17.",
+      "itemTitle": "Checkout QA",
+      "itemId": "checkout-qa"
+    },
+    {
+      "type": "owner_changed",
+      "category": "owner",
+      "field": "owner",
+      "old": "QA",
+      "new": "QE",
+      "message": "\"Checkout QA\" owner changed from QA to QE.",
+      "itemTitle": "Checkout QA",
+      "itemId": "checkout-qa"
+    },
+    {
+      "type": "status_changed",
+      "category": "status",
+      "field": "status",
+      "old": "planned",
+      "new": "active",
+      "message": "\"Checkout QA\" status changed from planned to active.",
+      "itemTitle": "Checkout QA",
+      "itemId": "checkout-qa"
+    },
+    {
+      "type": "start_moved",
+      "category": "schedule",
+      "field": "start",
+      "old": "2026-06-17",
+      "new": "2026-06-18",
+      "message": "\"Launch decision\" start moved from 2026-06-17 to 2026-06-18.",
+      "itemTitle": "Launch decision",
+      "itemId": "launch-decision"
+    },
+    {
+      "type": "removed",
+      "category": "scope",
+      "itemTitle": "Legal approval",
+      "itemId": "legal-approval",
+      "item": {
+        "id": "legal-approval",
+        "title": "Legal approval",
+        "type": "task",
+        "exact_date_needed": false,
+        "owner": "Legal",
+        "status": "planned",
+        "dependencies": [
+          "Launch decision"
+        ],
+        "date_derivation": "none",
+        "evidence_grade": "missing",
+        "evidence_reason": "No date evidence found; timeline placement needs human follow-up.",
+        "missing_title": false,
+        "dangerous_fields": [],
+        "source_refs": [
+          {
+            "source_id": "baseline-plan",
+            "locator": "baseline-plan:7",
+            "line": 7
+          }
+        ]
+      },
+      "message": "\"Legal approval\" is in the baseline but missing from the current timeline."
+    },
+    {
+      "type": "added",
+      "category": "scope",
+      "itemTitle": "Release notes",
+      "itemId": "release-notes",
+      "item": {
+        "id": "release-notes",
+        "title": "Release notes",
+        "type": "task",
+        "start": "2026-06-13",
+        "end": "2026-06-15",
+        "exact_date_needed": false,
+        "owner": "SRE",
+        "status": "planned",
+        "dependencies": [
+          "API contract"
+        ],
+        "date_derivation": "explicit",
+        "evidence_grade": "exact",
+        "evidence_reason": "Exact date evidence (YYYY-MM-DD) found in source text.",
+        "missing_title": false,
+        "dangerous_fields": [],
+        "source_refs": [
+          {
+            "source_id": "current-plan",
+            "locator": "current-plan:7",
+            "line": 7
+          }
+        ]
+      },
+      "message": "\"Release notes\" was added to the current timeline."
+    }
+  ],
+  "new_issues": [
+    {
+      "type": "impossible_sequence",
+      "category": "validation",
+      "itemTitle": "Release notes",
+      "dependency": "API contract",
+      "message": "\"Release notes\" starts before dependency \"API contract\" ends."
+    }
+  ],
+  "ambiguities": [],
+  "critical_path": {
+    "computed": false,
+    "reason": "Critical path is not computed. It cannot be determined defensibly with incomplete data: missing dates, durations, or owners leave the schedule under-constrained."
+  }
+}

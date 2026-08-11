@@ -1,7 +1,7 @@
 {
   "name": "timeline-truth",
-  "version": "0.2.1",
-  "description": "Open-source MCP server for compiling messy project planning inputs into evidence-preserving timelines.",
+  "version": "0.3.0",
+  "description": "Evidence-preserving timeline compiler, strict validator, and schedule diff for AI-agent TPM workflows.",
   "author": "hilmimuktitama",
   "license": "MIT",
   "repository": {
@@ -19,8 +19,10 @@
   },
   "files": [
     "src",
-    "docs/*.md",
+    "docs",
     "examples",
+    "schemas",
+    "evaluation",
     "README.md",
     "LICENSE"
   ],
@@ -29,16 +31,22 @@
     "model-context-protocol",
     "timeline",
     "project-planning",
+    "schedule-diff",
+    "evidence",
     "mermaid",
     "tpm",
     "program-management"
   ],
   "scripts": {
     "test": "node --test",
-    "check": "node scripts/check-syntax.js"
+    "check": "node scripts/check-syntax.js",
+    "contracts:verify": "node scripts/contracts-verify.js",
+    "eval": "node scripts/evaluation.js",
+    "benchmark": "node scripts/benchmark.js",
+    "verify": "npm test && npm run check && npm run contracts:verify && npm run eval"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.17.5"
+    "@modelcontextprotocol/sdk": "^1.30.0"
   },
   "engines": {
     "node": ">=22"

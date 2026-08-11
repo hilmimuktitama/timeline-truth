@@ -1,3 +1,4 @@
+import { diffTimelines, renderDiffMarkdown } from "./diff.js";
 import { createTimeline, refineTimeline, renderTimeline, validateTimeline } from "./timeline.js";
 
 const SOURCE_SCHEMA = {
@@ -5,9 +6,11 @@ const SOURCE_SCHEMA = {
   required: ["content"],
   additionalProperties: true,
   properties: {
-    id: { type: "string", description: "Stable source identifier used in source_refs." },
-    path: { type: "string", description: "Optional file path to preserve in source_refs." },
+    id: { type: "string", description: "Stable source identifier; becomes the source_id of every canonical SourceRef." },
+    path: { type: "string", description: "Optional file path; becomes the base of each derived SourceRef locator." },
     type: { type: "string", enum: ["text", "markdown", "csv", "json"], default: "text" },
+    profile: { type: "string", description: "Optional Markdown profile: estimate_table, objective_table, progress_table." },
+    source_system: { type: "string", description: "Optional system of record (for example jira, confluence)." },
     content: {
       description: "Pasted text/file content. JSON sources may pass a JSON string or object.",
       oneOf: [{ type: "string" }, { type: "object" }, { type: "array" }]
@@ -33,7 +36,7 @@ export function listTimelineTools() {
     {
       name: "create_timeline",
       description:
-        "Compile pasted project planning text, Markdown, CSV, or JSON into a normalized timeline with gaps, assumptions, and Mermaid renders.",
+        "Compile pasted project planning text, Markdown, CSV, or JSON into a normalized timeline with evidence grades, gaps, assumptions, and Mermaid renders.",
       inputSchema: {
         type: "object",
         required: ["sources"],
@@ -67,7 +70,7 @@ export function listTimelineTools() {
     {
       name: "validate_timeline",
       description:
-        "Validate a normalized timeline for missing dates, missing owners, unknown dependencies, circular dependencies, and impossible sequencing.",
+        "Validate a normalized timeline for missing dates, missing owners, unknown dependencies, cycles, impossible sequencing, invalid calendar dates, timezone-free datetimes, malformed durations, duplicate ids/dependencies, missing titles, and unsupported dangerous fields.",
       inputSchema: {
         type: "object",
         required: ["timeline"],
@@ -97,7 +100,7 @@ export function listTimelineTools() {
     {
       name: "refine_timeline",
       description:
-        "Apply agent/user edits to an existing timeline while preserving source_refs and assumptions unless explicitly replaced.",
+        "Apply agent/user edits to an existing timeline while preserving source_refs and assumptions unless explicitly replaced. Each update requires matchTitle or matchId and a set object; an update that matches no item or lacks a set throws an error. The evidence grade is always recomputed from the edited evidence and cannot be overridden.",
       inputSchema: {
         type: "object",
         required: ["timeline", "updates"],
@@ -109,13 +112,33 @@ export function listTimelineTools() {
             items: {
               type: "object",
               required: ["set"],
+              anyOf: [{ required: ["matchTitle"] }, { required: ["matchId"] }],
               additionalProperties: false,
               properties: {
-                matchTitle: { type: "string" },
-                matchId: { type: "string" },
+                matchTitle: { type: "string", description: "Title of the item to refine." },
+                matchId: { type: "string", description: "Id of the item to refine." },
                 set: { type: "object", additionalProperties: true }
               }
             }
+          }
+        }
+      }
+    },
+    {
+      name: "diff_timelines",
+      description:
+        "Compare a baseline timeline against a current timeline and report scope, schedule, owner, dependency, status, and evidence-grade changes plus new impossible sequencing. Critical path is never computed.",
+      inputSchema: {
+        type: "object",
+        required: ["baseline", "current"],
+        additionalProperties: false,
+        properties: {
+          baseline: TIMELINE_SCHEMA,
+          current: TIMELINE_SCHEMA,
+          format: {
+            type: "string",
+            enum: ["json", "markdown"],
+            default: "json"
           }
         }
       }
@@ -133,6 +156,12 @@ export function callTimelineTool(name, args = {}) {
       return textContent(renderTimeline(args.timeline, { format: args.format }));
     case "refine_timeline":
       return jsonContent(refineTimeline(args.timeline, { updates: args.updates }));
+    case "diff_timelines": {
+      const diff = diffTimelines(args.baseline, args.current);
+      return args.format === "markdown"
+        ? textContent(renderDiffMarkdown(diff).trimEnd())
+        : jsonContent(diff);
+    }
     default:
       throw new Error(`Unknown timeline tool: ${name}`);
   }

@@ -1,0 +1,108 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://truth-tools.dev/schemas/timeline-item.schema.json",
+  "title": "TimelineItem",
+  "description": "Canonical timeline item aligned with Timeline Truth. id is the preferred drift key; start/end are the planned or actual date range; deterministic evidence fields (date_derivation, evidence_grade, evidence_reason, exact_date_needed) are computed and preserved; source_refs are canonical SourceRef objects.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "title",
+    "type",
+    "status",
+    "dependencies",
+    "date_derivation",
+    "evidence_grade",
+    "evidence_reason",
+    "exact_date_needed",
+    "missing_title",
+    "dangerous_fields",
+    "source_refs"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Stable item identifier used for drift matching between baseline and current plans."
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Short human-readable item title. Empty titles normalize to \"Untitled\" and are flagged."
+    },
+    "type": {
+      "type": "string",
+      "enum": ["task", "milestone"]
+    },
+    "start": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+      "description": "Planned or actual start date, YYYY-MM-DD."
+    },
+    "end": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+      "description": "Planned or actual end date, YYYY-MM-DD."
+    },
+    "duration": {
+      "type": "string",
+      "pattern": "^\\d+[dwmy]$",
+      "description": "Duration such as 5d, 2w, 1m, 1y (deterministic standalone rendering)."
+    },
+    "time_window": {
+      "type": "string",
+      "description": "Preserved fuzzy window (for example \"W3-W4 May 2026\") that needs an exact date."
+    },
+    "date_text": {
+      "type": "string",
+      "description": "Raw date evidence text, including rejected timezone-free datetimes."
+    },
+    "exact_date_needed": {
+      "type": "boolean",
+      "description": "True when only a fuzzy time window exists."
+    },
+    "owner": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Accountable owner for the item."
+    },
+    "status": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Status such as planned, active, done, blocked, at risk."
+    },
+    "dependencies": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Dependency item titles."
+    },
+    "date_derivation": {
+      "type": "string",
+      "enum": ["explicit", "natural", "none"],
+      "description": "How the date evidence was obtained: explicit (YYYY-MM-DD), natural (deterministically converted natural language), or none."
+    },
+    "evidence_grade": {
+      "type": "string",
+      "enum": ["exact", "derived", "fuzzy", "missing"],
+      "description": "Deterministic evidence grade computed from the normalized evidence."
+    },
+    "evidence_reason": {
+      "type": "string",
+      "description": "Deterministic human-readable reason for the evidence grade."
+    },
+    "missing_title": {
+      "type": "boolean",
+      "description": "True when the source supplied no title."
+    },
+    "dangerous_fields": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Unsupported dangerous fields (prototype pollution vectors, code-execution hints) that were dropped and reported."
+    },
+    "source_refs": {
+      "type": "array",
+      "items": { "$ref": "https://truth-tools.dev/schemas/source-ref.schema.json" },
+      "description": "Evidence pointers back to source material."
+    }
+  }
+}

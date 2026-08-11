@@ -1,15 +1,16 @@
 # Timeline Truth
 
-Status: v0.2.1 public release. MIT licensed. Requires Node.js 22 or newer.
+Status: v0.3.0 public release. MIT licensed. Requires Node.js 22 or newer.
 
-Timeline Truth is a local MCP server for AI-agent TPM workflows: paste PRD/Jira/status notes,
+Timeline Truth is a local MCP server and CLI for AI-agent TPM workflows: paste PRD/Jira/status notes,
 CSV exports, launch checklists, or rough planning text; get timeline JSON,
-validation gaps, assumptions, and Mermaid/Markdown renders.
+evidence grades, validation gaps and issues, assumptions, Mermaid/Markdown
+renders, and schedule diffs.
 
 It is intentionally narrow. Timeline Truth does not invent missing dates,
-owners, or dependencies. It preserves `source_refs` and makes planning
-uncertainty visible so humans can review the timeline instead of trusting a
-confident rewrite.
+owners, or dependencies. It preserves `source_refs`, grades every item by the
+evidence actually available, and makes planning uncertainty visible so humans
+can review the timeline instead of trusting a confident rewrite.
 
 ## First Use
 
@@ -19,7 +20,7 @@ Use it when your planning input looks like this:
 Discovery: 2026-06-01 to 2026-06-05 owner PM status planned
 API contract: starts 2026-06-06 duration 4d owner Platform depends on Discovery
 Checkout QA: owner QA depends on API contract
-Launch decision milestone on 2026-06-17 owner PM
+Launch decision milestone on June 17, 2026 owner PM
 ```
 
 Ask your agent:
@@ -30,9 +31,10 @@ single source. Then summarize the timeline, list gaps and assumptions, and show
 the mermaid_gantt output. Do not infer missing dates or owners.
 ```
 
-The server returns normalized items, confidence reasons, grouped follow-up
-questions, gaps such as missing start/end dates, the default assumption that
-dates were not inferred, and portable Mermaid output.
+The server returns normalized items with deterministic `evidence_grade`
+values, grouped follow-up questions, gaps such as missing start/end dates, the
+default assumptions that dates were not inferred and that the critical path is
+not computed, and portable Mermaid output.
 
 For a quick local smoke test without configuring an MCP client, run the CLI:
 
@@ -42,6 +44,19 @@ timeline-truth examples/launch-checklist.md --format review
 
 The CLI reads from stdin when no file is provided, and can print `json`,
 `markdown`, `mermaid_gantt`, `mermaid_timeline`, or `review` output.
+
+Compare two timeline JSON files (for example a baseline plan and the current
+plan) with the schedule diff:
+
+```bash
+timeline-truth diff examples/baseline-plan.json examples/current-plan.json --format markdown
+timeline-truth diff examples/baseline-plan.json examples/current-plan.json --format json
+```
+
+The diff reports scope additions/removals, start/end/duration/range movements,
+owner, dependency, status, and evidence-grade changes, plus new impossible
+sequencing. It never computes a critical path: with incomplete data a critical
+path cannot be determined defensibly.
 
 For larger Markdown notes, `create_timeline` can parse only selected headings
 and ignore the rest:
@@ -66,8 +81,38 @@ and ignore the rest:
 Markdown tables under those headings are parsed into items. Fuzzy targets such
 as `W3-W4 May 2026` are preserved as `time_window`/`date_text` and flagged with
 an `exact_date` gap instead of being converted into invented dates. The response
-also includes `noise_report.ignored` counts for skipped frontmatter, prose, and
-table rows without target dates.
+also includes `noise_report.ignored` counts for skipped frontmatter, prose,
+metadata lines, unsupported tables, and table rows without target dates.
+`source_refs` on every item always point back to the original content —
+original line numbers, table row numbers, and raw row text are kept even when
+table headers are normalized or profiled note tables are transformed. Each
+reference uses the canonical SourceRef contract: a required `source_id`
+(identifying the source record in the same artifact) and a required
+deterministic `locator` — the source path (or stable source id) with the line,
+table row, or heading appended. The legacy `sourceId` field and plain-string
+references are still accepted on input, converted to `source_id` + `locator`,
+and reported as deprecation warnings in `noise_report.warnings`.
+
+## Evidence Grades
+
+Every timeline item carries `evidence_grade`, replacing the old arbitrary
+numeric `confidence`. The grade is computed by documented, deterministic rules
+and can never be overridden by caller input:
+
+| Grade | Rule |
+| --- | --- |
+| `exact` | At least one explicit `YYYY-MM-DD` date (or a timezone-bearing datetime, reduced to its date) is present. |
+| `derived` | No explicit date, but a natural-language date such as `June 17, 2026` was converted deterministically. |
+| `fuzzy` | No exact or derived date; only a fuzzy time window (`time_window`) was preserved for human review. |
+| `missing` | No date evidence at all; timeline placement needs human follow-up. |
+
+Each grade comes with a fixed `evidence_reason` string. Grades never guess:
+there is no numeric interpolation between "exact" and "missing".
+
+Items also carry `date_derivation` (`explicit` / `natural` / `none`), which
+records how the date evidence was obtained before normalization rewrote it.
+Because derivation survives re-normalization, a `derived` item keeps its grade
+even after its natural date was converted to `YYYY-MM-DD`.
 
 ## Why This Exists
 
@@ -79,7 +124,11 @@ Timeline Truth focuses on the handoff from messy planning material to a
 reviewable timeline:
 
 - preserve `source_refs` so every item can point back to evidence
+- grade evidence with `exact`/`derived`/`fuzzy`/`missing` instead of guessing
 - flag missing dates, owners, and dependency problems instead of guessing
+- validate strictly: real calendar dates, malformed durations, duplicate ids,
+  duplicate dependencies, timezone-free datetimes, and unsafe fields
+- diff baseline vs current plans so schedule drift is explicit
 - render portable Mermaid and Markdown artifacts
 - stay small enough to run inside local agent workflows
 
@@ -97,7 +146,7 @@ what is missing, and where each timeline item came from.
 Local checkout:
 
 ```bash
-npm install
+npm ci
 node src/mcp-server.js
 ```
 
@@ -119,6 +168,7 @@ Optional global install:
 ```bash
 npm install -g timeline-truth
 timeline-truth examples/launch-checklist.md --format review
+timeline-truth diff examples/baseline-plan.json examples/current-plan.json
 timeline-truth-mcp
 ```
 
@@ -134,11 +184,54 @@ For local development, use the checkout config in
 - `create_timeline`: compile source content into timeline JSON plus Mermaid
   outputs.
 - `validate_timeline`: report missing dates, owners, unknown dependencies,
-  circular dependencies, and impossible sequencing.
+  circular dependencies, impossible sequencing, invalid calendar dates,
+  timezone-free datetimes, malformed durations, duplicate ids/dependencies,
+  missing titles, and unsupported dangerous fields.
 - `render_timeline`: render a normalized timeline as `mermaid_gantt`,
   `mermaid_timeline`, `markdown`, or `review_report`.
 - `refine_timeline`: apply edits while preserving evidence (`source_refs`) and
-  assumptions.
+  assumptions. Every update requires `matchTitle` or `matchId`; setting exact
+  dates clears stale fuzzy state (`time_window`, `date_text`,
+  `exact_date_needed`) and vice versa, and the evidence grade is always
+  recomputed from the edited evidence.
+- `diff_timelines`: compare baseline vs current timelines and report all
+  change categories. Ambiguous duplicate matches (several current items
+  matching one baseline item) are reported, never silently guessed. Critical
+  path is never computed.
+
+## Validation Rules
+
+Strict validations are deterministic and advisory to humans (nothing is
+silently "fixed"):
+
+- Gaps (follow-up questions): missing start, missing end (non-milestones),
+  missing owner (one per item), fuzzy window needing an exact date.
+- Issues: unknown dependencies (with title suggestions), circular dependencies,
+  impossible sequences (item starts before a dependency ends), `start_after_end`,
+  invalid calendar dates (`2026-02-30` fails; `2024-02-29` passes),
+  timezone-free datetimes (a datetime with a time-of-day but no timezone is
+  rejected for scheduling; timezone-bearing datetimes are accepted and reduced
+  to their date), malformed durations, duplicate dependencies, duplicate ids,
+  missing titles, and unsupported dangerous fields (`__proto__`, `constructor`,
+  `prototype`, `eval`, `exec`, `command`, `shell`, `script`, `spawn`,
+  `require`, `import`, `fetch`, `child_process`, `os` — dropped and flagged).
+
+## Schemas And Drift Verification
+
+The normalized contracts are published as JSON Schema files (Draft 2020-12):
+
+- [schemas/timeline-item.schema.json](schemas/timeline-item.schema.json)
+- [schemas/source-ref.schema.json](schemas/source-ref.schema.json)
+
+Both are byte-exact copies of the canonical truth-tools contract schemas.
+`npm run contracts:verify` checks that `package.json`, the MCP server, the
+engine `SCHEMA_VERSION`, and both schemas all agree on 0.3.0, that the schema
+files match their canonical siblings in
+`truth-tools/packages/contracts/schemas/` (drift fails the run), and that real
+engine output conforms to the schemas — including the canonical SourceRef
+contract, where every `source_refs` entry carries the required `source_id` and
+deterministic `locator`. The verifier has no runtime dependency beyond Node
+itself.
 
 ## Examples
 
@@ -148,18 +241,33 @@ Realistic fixtures live in [examples](examples):
 - [Jira CSV export](examples/jira-export.csv)
 - [Launch checklist](examples/launch-checklist.md)
 - [Status update](examples/status-update.md)
+- [Baseline plan](examples/baseline-plan.json) vs [current plan](examples/current-plan.json)
+  with the expected [drift JSON](examples/timeline-drift.json) and
+  [drift Markdown](examples/timeline-drift.md)
 
 Each example has a compact expected-output JSON file and is covered by tests.
+
+## Evaluation
+
+`npm run eval` runs the synthetic regression/evaluation suite in
+[evaluation](evaluation): deterministic cases plus the example fixtures,
+checked for titles, gaps, issue types, evidence grades, and renders. This is a
+regression net, not an accuracy benchmark — see
+[evaluation/README.md](evaluation/README.md) for honest limitations.
 
 ## Current limitations
 
 - Text parsing is heuristic. It works best when each planning item is on its own
   line.
-- Markdown parsing supports heading filters and simple pipe tables, but rich
-  nested documents are not fully parsed.
+- Markdown parsing supports heading filters, frontmatter/metadata skipping,
+  simple pipe tables, and profiled note tables (`estimate_table`,
+  `objective_table`, `progress_table`), but rich nested documents are not fully
+  parsed.
 - CSV and JSON are more reliable than free-form notes when exact fields matter.
 - There are no Jira, Confluence, Slack, or hosted imports in this release.
 - The server validates dependencies by item title, not by external issue keys.
+- A critical path is never computed: it cannot be determined defensibly with
+  incomplete data.
 
 ## Project Boundaries
 
@@ -170,6 +278,7 @@ Good fits:
 
 - turning rough planning notes into a reviewable timeline
 - finding missing dates, owners, and dependency issues
+- detecting schedule drift between a baseline plan and the current plan
 - generating Mermaid timelines for docs and status reports
 - preserving evidence during AI-assisted planning
 
@@ -178,18 +287,23 @@ Poor fits:
 - capacity planning
 - drag-and-drop timeline editing
 - automatic schedule generation from vague goals
+- computing a defensible critical path from incomplete planning data
 - replacing Jira, Asana, Smartsheet, or similar systems of record
 
 ## Development
 
 ```bash
-npm install
+npm ci
 npm test
 npm run check
+npm run contracts:verify
+npm run eval
 npm pack --dry-run
 ```
 
-See [docs/RELEASE.md](docs/RELEASE.md) before publishing.
+Or run the whole verification chain with `npm run verify`. See
+[docs/RELEASE.md](docs/RELEASE.md) before publishing and
+[MIGRATION.md](MIGRATION.md) when upgrading from 0.2.x.
 
 ## Contributing
 
