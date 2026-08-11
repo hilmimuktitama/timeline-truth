@@ -1,12 +1,11 @@
-const DATE_PATTERN = /\b\d{4}-\d{2}-\d{2}\b/g;
-const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
-const DURATION_PATTERN = /^\d+[dwmy]$/;
-const DEFAULT_MARKDOWN_SECTIONS = ["Timeline", "Milestones", "Next", "Risks And Blockers", "Follow-Ups"];
-
 export const SCHEMA_VERSION = "0.3.0";
 export const EVIDENCE_GRADES = ["exact", "derived", "fuzzy", "missing"];
 export const EVIDENCE_DERIVATIONS = ["explicit", "natural", "none"];
 
+const DATE_PATTERN = /\b\d{4}-\d{2}-\d{2}\b/g;
+const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+const DURATION_PATTERN = /^\d+[dwmy]$/;
+const DEFAULT_MARKDOWN_SECTIONS = ["Timeline", "Milestones", "Next", "Risks And Blockers", "Follow-Ups"];
 const METADATA_LINE_PATTERN =
   /^(?:generated|timezone|time\s*zone|package|version|created|updated|last\s+updated)\s*:/i;
 const PROJECT_HEADER_PATTERN = /^project\s*:\s*(.+)$/i;
@@ -1318,7 +1317,6 @@ function extractFirstNaturalDateText(text = "") {
   const match = String(text).match(NATURAL_DATE_PATTERN);
   return match ? match[0] : extractFirstDateIso(text);
 }
-
 function extractFirstDateIso(text = "") {
   return normalizeNaturalDateText(text).match(DATE_PATTERN)?.[0];
 }

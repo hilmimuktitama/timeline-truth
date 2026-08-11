@@ -11,12 +11,60 @@ CSV exports, launch checklists, or rough planning text; get timeline JSON,
 evidence grades, validation gaps and issues, assumptions, Mermaid/Markdown
 renders, and schedule diffs.
 
+For general evidence + timeline + program-status review, prefer [`truth-tools`](https://github.com/hilmimuktitama/truth-tools) as the unified CLI/MCP entrypoint. Use `timeline-truth` directly when you only need timeline parsing, validation, refinement, and Mermaid/Markdown output.
+
 It is intentionally narrow. Timeline Truth does not invent missing dates,
 owners, or dependencies. It preserves `source_refs`, grades every item by the
 evidence actually available, and makes planning uncertainty visible so humans
 can review the timeline instead of trusting a confident rewrite.
 
 ## First Use
+
+### Easy Way: Ask Your Agent
+
+Tell your AI agent:
+
+```text
+let's use timeline-truth from https://github.com/hilmimuktitama/timeline-truth
+```
+
+The GitHub repo is the discovery source. After reading this README, your agent
+should install the stable npm package, add the MCP server to your local agent
+config, reload MCP if needed, and verify `create_timeline` is available.
+
+Your agent should handle the setup for you. Most users should not copy MCP JSON
+by hand. The agent-facing install checklist is in
+[docs/AI-AGENT-INSTALL.md](docs/AI-AGENT-INSTALL.md).
+
+Manual fallback/reference config:
+
+Use this only if your agent cannot edit MCP config automatically. In that case,
+ask the agent to tell you exactly where this JSON belongs in your current
+MCP-capable client.
+
+```json
+{
+  "mcpServers": {
+    "timeline-truth": {
+      "command": "npx",
+      "args": ["-y", "--package=timeline-truth", "timeline-truth-mcp"]
+    }
+  }
+}
+```
+
+After setup, paste your planning notes and ask your agent:
+
+```text
+Use the timeline-truth MCP server. Call create_timeline with these notes as a
+single source. Then summarize the timeline, list gaps and assumptions, and show
+the mermaid_gantt output. Do not infer missing dates, owners, or dependencies;
+use the tool gaps as follow-up questions.
+```
+
+The expected result is that your agent calls `create_timeline` for you and
+returns normalized timeline items, explicit gaps, assumptions, and portable
+Mermaid output. You do not need to manually run the MCP tool.
 
 Use it when your planning input looks like this:
 
@@ -135,6 +183,49 @@ reviewable timeline:
 - diff baseline vs current plans so schedule drift is explicit
 - render portable Mermaid and Markdown artifacts
 - stay small enough to run inside local agent workflows
+
+## How It Works
+
+Timeline Truth gives AI agents a deterministic timeline compiler and validator,
+so messy planning notes become traceable, reviewable timeline artifacts instead
+of confident guesses.
+
+```mermaid
+flowchart LR
+  user["TPM / PM / Eng Lead"] --> agent["AI Agent"]
+
+  docs["Messy Planning Inputs<br/>PRD notes<br/>Jira CSV<br/>Status update<br/>Launch checklist<br/>Markdown table"] --> agent
+
+  agent --> mcp["Timeline Truth MCP Server<br/>src/mcp-server.js"]
+  mcp --> tools["MCP Tools<br/>src/mcp-tools.js"]
+
+  tools --> create["create_timeline"]
+  tools --> validate["validate_timeline"]
+  tools --> render["render_timeline"]
+  tools --> refine["refine_timeline"]
+
+  create --> engine["Timeline Engine<br/>src/timeline.js"]
+  validate --> engine
+  render --> engine
+  refine --> engine
+
+  engine --> parser["Parse Inputs<br/>text / markdown / csv / json"]
+  parser --> normalize["Normalize Timeline Items"]
+  normalize --> evidence["Preserve source_refs<br/>where each item came from"]
+  normalize --> gaps["Flag Gaps<br/>missing dates<br/>missing owners<br/>fuzzy windows"]
+  normalize --> issues["Flag Issues<br/>unknown dependencies<br/>cycles<br/>bad sequencing"]
+  normalize --> outputs["Render Outputs<br/>Mermaid Gantt<br/>Mermaid Timeline<br/>Markdown"]
+
+  evidence --> review["Human Review"]
+  gaps --> review
+  issues --> review
+  outputs --> review
+
+  review --> benefit["Better Planning Conversations<br/>less guessing<br/>clear follow-ups<br/>traceable timeline<br/>agent output is easier to trust"]
+```
+
+This helps users move from scattered planning evidence to a timeline that can be
+checked, challenged, refined, and shared.
 
 ## Why not just ask ChatGPT or Mermaid?
 
@@ -314,11 +405,6 @@ npm pack --dry-run
 Or run the whole verification chain with `npm run verify`. See
 [docs/RELEASE.md](docs/RELEASE.md) before publishing and
 [MIGRATION.md](MIGRATION.md) when upgrading from 0.2.x.
-
-## Contributing
-
-Contributions are welcome when they keep the project narrow and evidence-first.
-Before adding features, check [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 

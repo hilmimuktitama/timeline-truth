@@ -21,6 +21,12 @@ test("README gives a credible first-use path for AI-agent TPM adoption", () => {
   assert.match(readme, /Current limitations/i);
   assert.match(readme, /Npm package config/i);
   assert.match(readme, /timeline-truth examples\/launch-checklist\.md --format review/i);
+  assert.match(readme, /Easy Way: Ask Your Agent/i);
+  assert.match(readme, /let's use timeline-truth from https:\/\/github\.com\/hilmimuktitama\/timeline-truth/i);
+  assert.match(readme, /Your agent should handle the setup/i);
+  assert.match(readme, /Most users should not copy MCP JSON\s+by hand/i);
+  assert.match(readme, /Manual fallback\/reference config/i);
+  assert.match(readme, /docs\/AI-AGENT-INSTALL\.md/i);
   assert.match(readme, /Markdown tables under those headings are parsed into items/i);
   assert.match(readme, /noise_report\.ignored/i);
   assert.match(readme, /evidence_grade/i);
@@ -40,14 +46,23 @@ test("package exposes both MCP and first-run CLI binaries at version 0.3.0", () 
   );
 });
 
-test("MCP setup and release docs cover local use, npm use, agent prompting, and publish checks", () => {
+test("MCP setup, agent install docs, and release docs cover adoption and publish checks", () => {
   const setup = readFileSync("docs/MCP-SETUP.md", "utf8");
+  const agentInstall = readFileSync("docs/AI-AGENT-INSTALL.md", "utf8");
   const release = readFileSync("docs/RELEASE.md", "utf8");
 
   assert.match(setup, /local checkout/i);
   assert.match(setup, /timeline-truth-mcp/);
+  assert.match(setup, /Generic MCP-Capable Agent/i);
+  assert.match(setup, /docs\/AI-AGENT-INSTALL\.md/i);
+  assert.match(setup, /Ask your agent to call `create_timeline`/i);
   assert.match(setup, /create_timeline/);
   assert.match(setup, /diff_timelines/);
+  assert.match(agentInstall, /let's use timeline-truth from https:\/\/github\.com\/hilmimuktitama\/timeline-truth/i);
+  assert.match(agentInstall, /install the stable npm package/i);
+  assert.match(agentInstall, /"args": \["-y", "--package=timeline-truth", "timeline-truth-mcp"\]/);
+  assert.match(agentInstall, /verify `create_timeline` is available/i);
+  assert.match(agentInstall, /If you cannot edit the MCP config/i);
   assert.match(release, /npm view timeline-truth/i);
   assert.match(release, /npm pack --dry-run/i);
   assert.match(release, /npm publish --provenance --access public/i);
