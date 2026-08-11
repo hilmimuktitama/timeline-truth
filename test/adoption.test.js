@@ -87,6 +87,15 @@ test("CI and release workflows exist with clean-install and trusted publishing",
   assert.match(release, /examples\/launch-checklist\.md --type markdown --format review/);
   assert.match(release, /examples\/baseline-plan\.json examples\/current-plan\.json --format markdown/);
   assert.match(release, /npm publish/);
+  assert.match(release, /release:\n\s+types: \[published\]/);
+  assert.match(release, /workflow_dispatch:/);
+  assert.match(release, /required: true/);
+  assert.match(release, /ref: \$\{\{ env\.RELEASE_TAG \}\}/);
+  assert.match(release, /refs\/tags\/\$RELEASE_TAG/);
+  assert.match(release, /package\.json.*version/);
+  assert.match(release, /contents: read/);
+  assert.match(release, /id-token: write/);
+  assert.doesNotMatch(release, /NODE_AUTH_TOKEN|NPM_TOKEN|gh release create|GITHUB_TOKEN/);
 });
 
 for (const [name, sourcePath, sourceType, expectedPath] of EXAMPLE_CASES) {

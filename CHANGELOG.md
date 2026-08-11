@@ -13,6 +13,10 @@ All notable changes to Timeline Truth are documented here. Versions follow
 - Propagated the canonical generated source-reference schema and release gates:
   CI and publishing now run high-severity dependency audits and matching CLI
   diff smoke checks before packaging.
+- Standardized trusted releases on published GitHub Releases (or a manually
+  supplied existing tag), with exact-tag checkout, package-version verification,
+  complete verification gates, and npm OIDC provenance publishing without
+  creating a second GitHub Release.
 
 ## [0.3.0] - 2026-08-11
 

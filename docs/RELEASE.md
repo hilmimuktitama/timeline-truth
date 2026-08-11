@@ -68,11 +68,21 @@ The release gate runs the same CLI and diff smoke checks before packing and
 publishing, including non-empty output and the explicit non-computed critical
 path statement.
 
-## Publish
+## Release Sequence
 
-The repository has a trusted-publishing release workflow
-(`.github/workflows/release.yml`): push a `v0.3.0` tag and the workflow runs
-the verification chain and publishes with npm provenance. Manual fallback:
+1. Update `CHANGELOG.md`, `README.md`, and any migration notes, then verify the
+   package version in `package.json`.
+2. Commit the release preparation and push it to the default branch.
+3. Create and publish the matching GitHub Release for the exact `vX.Y.Z` tag.
+4. The published-release event runs `.github/workflows/release.yml`, which
+   checks out that exact tag, verifies its package version, runs every gate, and
+   publishes to npm with OIDC provenance.
+5. If the event needs to be replayed, manually run the workflow and provide the
+   existing release tag; it never creates a GitHub Release itself.
+
+The workflow gates are clean install, high-severity dependency audit, tests,
+syntax check, contract verification, evaluation, CLI review/status and JSON/
+Markdown diff smoke checks, and package dry run. Manual fallback:
 
 ```bash
 npm publish --provenance --access public

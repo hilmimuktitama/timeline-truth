@@ -1,13 +1,21 @@
 name: Release
 
 on:
-  push:
-    tags:
-      - "v*"
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing release tag to verify and publish (for example, v0.3.0)
+        required: true
+        type: string
 
 permissions:
   id-token: write
-  contents: write
+  contents: read
+
+env:
+  RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.event.release.tag_name }}
 
 jobs:
   verify:
@@ -16,6 +24,16 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RELEASE_TAG }}
+          fetch-depth: 0
+
+      - name: Verify exact release tag and package version
+        run: |
+          test -n "$RELEASE_TAG"
+          case "$RELEASE_TAG" in v[0-9]*.[0-9]*.[0-9]*) ;; *) echo "Invalid release tag: $RELEASE_TAG"; exit 1 ;; esac
+          test "$(git rev-parse HEAD)" = "$(git rev-parse "refs/tags/$RELEASE_TAG^{commit}")"
+          test "$(node -p "require('./package.json').version")" = "${RELEASE_TAG#v}"
 
       - name: Setup Node.js 22
         uses: actions/setup-node@v4
@@ -64,6 +82,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RELEASE_TAG }}
+          fetch-depth: 0
 
       - name: Setup Node.js 22 with npm registry
         uses: actions/setup-node@v4
@@ -75,19 +96,5 @@ jobs:
       - name: Clean install
         run: npm ci
 
-      - name: Dependency audit
-        run: npm audit --audit-level=high
-
       - name: Publish
         run: npm publish --provenance --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-
-      - name: Create GitHub release
-        run: |
-          VERSION="${GITHUB_REF_NAME#v}"
-          gh release create "$GITHUB_REF_NAME" \
-            --title "timeline-truth v${VERSION}" \
-            --notes "See CHANGELOG.md for v${VERSION}."
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

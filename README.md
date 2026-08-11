@@ -2,6 +2,10 @@
 
 Status: v0.3.0 public release. MIT licensed. Requires Node.js 22 or newer.
 
+Releases are published from an exact, version-checked release tag after the
+trusted workflow passes its tests, audit, contracts, evaluation, CLI diff, and
+package gates. See [docs/RELEASE.md](docs/RELEASE.md) for the release sequence.
+
 Timeline Truth is a local MCP server and CLI for AI-agent TPM workflows: paste PRD/Jira/status notes,
 CSV exports, launch checklists, or rough planning text; get timeline JSON,
 evidence grades, validation gaps and issues, assumptions, Mermaid/Markdown
