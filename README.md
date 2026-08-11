@@ -227,15 +227,21 @@ The normalized contracts are published as JSON Schema files (Draft 2020-12):
 - [schemas/timeline-item.schema.json](schemas/timeline-item.schema.json)
 - [schemas/source-ref.schema.json](schemas/source-ref.schema.json)
 
-Both are byte-exact copies of the canonical truth-tools contract schemas.
-`npm run contracts:verify` checks that `package.json`, the MCP server, the
-engine `SCHEMA_VERSION`, and both schemas all agree on 0.3.0, that the schema
-files match their canonical siblings in
-`truth-tools/packages/contracts/schemas/` (drift fails the run), and that real
-engine output conforms to the schemas — including the canonical SourceRef
+`npm run contracts:verify` always validates the local schemas structurally and
+checks real engine output against them — including the canonical SourceRef
 contract, where every `source_refs` entry carries the required `source_id` and
-deterministic `locator`. The verifier has no runtime dependency beyond Node
-itself.
+deterministic `locator`. When
+`../truth-tools/packages/contracts/schemas/` exists beside this checkout, the
+verifier also performs a byte-exact comparison automatically. To require that
+comparison explicitly, set `TRUTH_TOOLS_SCHEMA_DIR` to the contracts schema
+directory (relative paths are resolved from this repository's root); missing
+paths/files or any byte difference then fail the run. The verifier also fails
+if its own local schema bytes cannot be read during a comparison. Without
+either source, it clearly reports that cross-repository bytes were skipped; it
+never presents that as a successful cross-repository check. Truth Tools CI
+remains the authoritative live cross-repository gate. This standalone check
+has no runtime dependency on Truth Tools and avoids a circular merge
+dependency.
 
 ## Examples
 
