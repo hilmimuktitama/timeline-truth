@@ -15,7 +15,7 @@ test("README gives a credible first-use path for AI-agent TPM adoption", () => {
   const readme = readFileSync("README.md", "utf8");
   const packageJson = JSON.parse(readFileSync("package.json", "utf8"));
 
-  assert.match(readme, new RegExp(`Status: v${packageJson.version} prepared source \\(not yet published\\)`));
+  assert.match(readme, new RegExp(`Status: v${packageJson.version} public release`));
   assert.match(readme, /paste PRD\/Jira\/status notes/i);
   assert.match(readme, /Why not just ask ChatGPT or Mermaid\?/i);
   assert.match(readme, /Current limitations/i);
