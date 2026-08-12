@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, rmSync, symlinkSync } from "node:fs";
+import { existsSync, mkdtempSync, rmSync, symlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { execFileSync } from "node:child_process";
@@ -135,6 +135,79 @@ test("CLI runs through a symlink for help, compile, and diff", () => {
       process.execPath,
       [link, "diff", "examples/baseline-plan.json", "examples/current-plan.json", "--format", "json"],
       { cwd: fileURLToPath(new URL("..", import.meta.url)), encoding: "utf8" }
+    );
+    assert.equal(JSON.parse(diff).schema_version, "0.3.0");
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test("packed tarball installs and exposes runnable CLI and MCP bins", () => {
+  const directory = mkdtempSync(join(tmpdir(), "timeline-truth-pack-"));
+  const installDirectory = join(directory, "install");
+  const repoRoot = fileURLToPath(new URL("..", import.meta.url));
+
+  try {
+    const packed = JSON.parse(
+      execFileSync(
+        "npm",
+        ["pack", "--json", "--pack-destination", directory],
+        { cwd: repoRoot, encoding: "utf8" }
+      )
+    );
+    assert.equal(packed.length, 1);
+    const tarballPath = join(directory, packed[0].filename);
+
+    execFileSync(
+      "npm",
+      [
+        "install",
+        "--prefix",
+        installDirectory,
+        "--no-package-lock",
+        "--ignore-scripts",
+        "--no-audit",
+        "--no-fund",
+        tarballPath
+      ],
+      { cwd: repoRoot, stdio: "ignore" }
+    );
+
+    const cliBin = join(installDirectory, "node_modules", ".bin", "timeline-truth");
+    const mcpBin = join(installDirectory, "node_modules", ".bin", "timeline-truth-mcp");
+    assert.ok(existsSync(cliBin), "packed install should expose the timeline-truth CLI bin");
+    assert.ok(existsSync(mcpBin), "packed install should expose the timeline-truth-mcp bin");
+
+    execFileSync(process.execPath, [mcpBin], {
+      cwd: installDirectory,
+      input: "",
+      encoding: "utf8",
+      timeout: 5000
+    });
+
+    const compile = execFileSync(
+      process.execPath,
+      [cliBin, "--format", "markdown"],
+      {
+        cwd: installDirectory,
+        encoding: "utf8",
+        input: "Discovery: 2026-06-01 to 2026-06-05 owner TPM"
+      }
+    );
+    assert.match(compile, /## Timeline/);
+    assert.match(compile, /Discovery/);
+
+    const diff = execFileSync(
+      process.execPath,
+      [
+        cliBin,
+        "diff",
+        "node_modules/timeline-truth/examples/baseline-plan.json",
+        "node_modules/timeline-truth/examples/current-plan.json",
+        "--format",
+        "json"
+      ],
+      { cwd: installDirectory, encoding: "utf8" }
     );
     assert.equal(JSON.parse(diff).schema_version, "0.3.0");
   } finally {

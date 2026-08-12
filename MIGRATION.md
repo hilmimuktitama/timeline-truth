@@ -4,9 +4,10 @@ This guide covers moving to Timeline Truth 0.3.0 from 0.2.x.
 
 ## 1. Version Consistency
 
-Everything is now pinned to 0.3.0 and verified by `npm run contracts:verify`:
+The 0.3.0 normalized contract remains supported by the 0.3.1 package release
+and is verified by `npm run contracts:verify`:
 
-- `package.json` version
+- `package.json` release version
 - `src/mcp-server.js` server version
 - `src/timeline.js` `SCHEMA_VERSION`
 - `schemas/timeline-item.schema.json` and `schemas/source-ref.schema.json`
@@ -14,7 +15,8 @@ Everything is now pinned to 0.3.0 and verified by `npm run contracts:verify`:
   2020-12); the verifier fails if they drift from the canonical siblings
 
 If you consume the timeline JSON contract programmatically, check
-`timeline.schema_version === "0.3.0"` before relying on new fields.
+`timeline.schema_version === "0.3.0"` before relying on the 0.3.0 contract
+fields; the package release version is reported separately.
 
 ## 2. Canonical Source References
 

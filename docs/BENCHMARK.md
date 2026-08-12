@@ -7,7 +7,7 @@
 ## What Changed
 
 - `scripts/benchmark.js` is a deprecated shim that delegates to
-  `scripts/evaluation.js`. Use `npm run eval` (or the umbrella
+  `scripts/evaluation.js`. Use `npm run eval` (or the combined local
   `npm run verify`).
 - The old generated report (timings, "before vs after", raw-input dumps) is
   gone. Timings measured microbenchmarks of tiny fixtures and implied accuracy

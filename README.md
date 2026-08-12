@@ -1,6 +1,6 @@
 # Timeline Truth
 
-Status: v0.3.0 public release. MIT licensed. Requires Node.js 22 or newer.
+Status: v0.3.1 prepared source (not yet published). MIT licensed. Requires Node.js 22 or newer.
 
 Releases are published from an exact, version-checked release tag after the
 trusted workflow passes its tests, audit, contracts, evaluation, CLI diff, and
@@ -11,7 +11,7 @@ CSV exports, launch checklists, or rough planning text; get timeline JSON,
 evidence grades, validation gaps and issues, assumptions, Mermaid/Markdown
 renders, and schedule diffs.
 
-For general evidence + timeline + program-status review, prefer [`truth-tools`](https://github.com/hilmimuktitama/truth-tools) as the unified CLI/MCP entrypoint. Use `timeline-truth` directly when you only need timeline parsing, validation, refinement, and Mermaid/Markdown output.
+[`truth-tools`](https://github.com/hilmimuktitama/truth-tools) is the deterministic status-artifact review gate for the Truth Suite. Timeline Truth remains independently usable as the focused tool for parsing, validation, rendering, refinement, and schedule drift; use it directly when you need those timeline capabilities.
 
 It is intentionally narrow. Timeline Truth does not invent missing dates,
 owners, or dependencies. It preserves `source_refs`, grades every item by the
@@ -329,10 +329,10 @@ directory (relative paths are resolved from this repository's root); missing
 paths/files or any byte difference then fail the run. The verifier also fails
 if its own local schema bytes cannot be read during a comparison. Without
 either source, it clearly reports that cross-repository bytes were skipped; it
-never presents that as a successful cross-repository check. Truth Tools CI
-remains the authoritative live cross-repository gate. This standalone check
-has no runtime dependency on Truth Tools and avoids a circular merge
-dependency.
+never presents that as a successful cross-repository check. Truth Tools owns
+the deterministic status-artifact review gate and can perform the portfolio-level
+ cross-repository check. This standalone Timeline Truth check has no runtime
+ dependency on Truth Tools and avoids a circular merge dependency.
 
 ## Examples
 

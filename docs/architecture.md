@@ -156,11 +156,16 @@ and in gantt status text so unescaped user content cannot corrupt the diagram.
 
 ## Versioning And Drift
 
-One version lives in three places and is checked by `npm run contracts:verify`:
+The package release version and normalized contract version are checked
+independently by `npm run contracts:verify`:
 
-- `package.json` → `version`
-- `src/mcp-server.js` → server `version`
-- `src/timeline.js` → `SCHEMA_VERSION`
+- `package.json` → release `version` (`0.3.1`)
+- `src/mcp-server.js` → server release `version` (`0.3.1`)
+- `src/timeline.js` → normalized contract `SCHEMA_VERSION` (`0.3.0`)
+
+The package can ship a patch release without changing the shared normalized
+contract. The contract version is carried by timeline and diff artifacts and
+must change only when that contract changes.
 
 The schemas in `schemas/` are byte-exact copies of the canonical truth-tools
 contract schemas (Draft 2020-12): `timeline-item.schema.json` references the
