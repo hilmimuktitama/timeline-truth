@@ -1,6 +1,6 @@
 # Timeline Truth
 
-Status: v0.3.1 prepared source (not yet published). MIT licensed. Requires Node.js 22 or newer.
+Status: v0.3.1 public release. MIT licensed. Requires Node.js 22 or newer.
 
 Releases are published from an exact, version-checked release tag after the
 trusted workflow passes its tests, audit, contracts, evaluation, CLI diff, and
