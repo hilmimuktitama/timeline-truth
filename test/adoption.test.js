@@ -15,7 +15,7 @@ test("README gives a credible first-use path for AI-agent TPM adoption", () => {
   const readme = readFileSync("README.md", "utf8");
   const packageJson = JSON.parse(readFileSync("package.json", "utf8"));
 
-  assert.match(readme, new RegExp(`Status: v${packageJson.version} public release`));
+  assert.match(readme, new RegExp(`Status: v${packageJson.version} prepared source \\(not yet published\\)`));
   assert.match(readme, /paste PRD\/Jira\/status notes/i);
   assert.match(readme, /Why not just ask ChatGPT or Mermaid\?/i);
   assert.match(readme, /Current limitations/i);
@@ -34,10 +34,10 @@ test("README gives a credible first-use path for AI-agent TPM adoption", () => {
   assert.match(readme, /critical path/i);
 });
 
-test("package exposes both MCP and first-run CLI binaries at version 0.3.0", () => {
+test("package exposes both MCP and first-run CLI binaries at version 0.3.1", () => {
   const packageJson = JSON.parse(readFileSync("package.json", "utf8"));
 
-  assert.equal(packageJson.version, "0.3.0");
+  assert.equal(packageJson.version, "0.3.1");
   assert.equal(packageJson.bin["timeline-truth-mcp"], "src/mcp-server.js");
   assert.equal(packageJson.bin["timeline-truth"], "src/cli.js");
   assert.deepEqual(

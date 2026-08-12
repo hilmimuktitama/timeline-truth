@@ -3,10 +3,13 @@
 All notable changes to Timeline Truth are documented here. Versions follow
 [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [0.3.1] - 2026-08-13
 
 ### Changed
 
+- Clarified Truth Suite positioning: Truth Tools is the deterministic
+  status-artifact review gate, while Timeline Truth remains independently usable
+  for parsing, validation, rendering, refinement, and schedule drift.
 - Fixed tarball-installed CLI symlinks so help, compile, and diff commands run.
 - Updated the direct `@modelcontextprotocol/sdk` dependency to `^1.30.0`.
 - Propagated the canonical `date-time` formats on source-reference timestamps

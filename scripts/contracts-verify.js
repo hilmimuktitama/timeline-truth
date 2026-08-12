@@ -15,11 +15,12 @@ function check(label, ok, detail = "") {
   if (!ok) failures.push(`${label}${detail ? ` — ${detail}` : ""}`);
 }
 
-// 1. Version drift: package.json, MCP server, and engine schema must agree.
+// 1. Release-version drift: package.json and MCP server agree; the normalized
+//    contract version is checked separately below.
 const packageJson = JSON.parse(readFileSync(resolve(repoRoot, "package.json"), "utf8"));
 check(
-  "package.json version is 0.3.0",
-  packageJson.version === "0.3.0",
+  "package.json version is 0.3.1",
+  packageJson.version === "0.3.1",
   `found ${packageJson.version}`
 );
 check(
@@ -29,7 +30,7 @@ check(
 );
 const serverSource = readFileSync(resolve(repoRoot, "src/mcp-server.js"), "utf8");
 const serverVersion = serverSource.match(/version:\s*"([^"]+)"/)?.[1];
-check("mcp-server.js version is 0.3.0", serverVersion === "0.3.0", `found ${serverVersion}`);
+check("mcp-server.js version is 0.3.1", serverVersion === "0.3.1", `found ${serverVersion}`);
 
 // 2. Local schemas are always checked structurally and against runtime output.
 //    Cross-repository byte checks are opt-in when a sibling is present, or
@@ -130,7 +131,7 @@ if (explicitSchemaDir) {
   compareSchemaBytes(siblingSchemaDir, "local truth-tools sibling");
 } else {
   notices.push(
-    "SKIP - cross-repository schema bytes not checked (truth-tools sibling unavailable; Truth Tools CI remains authoritative)"
+    "SKIP - cross-repository schema bytes not checked (truth-tools sibling unavailable; Truth Tools status-artifact review gate remains authoritative)"
   );
 }
 

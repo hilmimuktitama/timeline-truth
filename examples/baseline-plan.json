@@ -13,7 +13,7 @@
       "dependencies": [],
       "evidence_grade": "exact",
       "evidence_reason": "Exact date evidence (YYYY-MM-DD) found in source text.",
-      "source_refs": [{ "sourceId": "baseline-plan", "line": 3 }]
+      "source_refs": [{ "source_id": "baseline-plan", "locator": "baseline-plan:3", "line": 3 }]
     },
     {
       "id": "api-contract",
@@ -26,7 +26,7 @@
       "dependencies": ["Discovery"],
       "evidence_grade": "exact",
       "evidence_reason": "Exact date evidence (YYYY-MM-DD) found in source text.",
-      "source_refs": [{ "sourceId": "baseline-plan", "line": 4 }]
+      "source_refs": [{ "source_id": "baseline-plan", "locator": "baseline-plan:4", "line": 4 }]
     },
     {
       "id": "checkout-qa",
@@ -39,7 +39,7 @@
       "dependencies": ["API contract"],
       "evidence_grade": "exact",
       "evidence_reason": "Exact date evidence (YYYY-MM-DD) found in source text.",
-      "source_refs": [{ "sourceId": "baseline-plan", "line": 5 }]
+      "source_refs": [{ "source_id": "baseline-plan", "locator": "baseline-plan:5", "line": 5 }]
     },
     {
       "id": "launch-decision",
@@ -51,7 +51,7 @@
       "dependencies": ["Checkout QA"],
       "evidence_grade": "exact",
       "evidence_reason": "Exact date evidence (YYYY-MM-DD) found in source text.",
-      "source_refs": [{ "sourceId": "baseline-plan", "line": 6 }]
+      "source_refs": [{ "source_id": "baseline-plan", "locator": "baseline-plan:6", "line": 6 }]
     },
     {
       "id": "legal-approval",
@@ -62,7 +62,7 @@
       "dependencies": ["Launch decision"],
       "evidence_grade": "missing",
       "evidence_reason": "No date evidence found; timeline placement needs human follow-up.",
-      "source_refs": [{ "sourceId": "baseline-plan", "line": 7 }]
+      "source_refs": [{ "source_id": "baseline-plan", "locator": "baseline-plan:7", "line": 7 }]
     }
   ],
   "assumptions": [

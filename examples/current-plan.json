@@ -13,7 +13,7 @@
       "dependencies": [],
       "evidence_grade": "exact",
       "evidence_reason": "Exact date evidence (YYYY-MM-DD) found in source text.",
-      "source_refs": [{ "sourceId": "current-plan", "line": 3 }]
+      "source_refs": [{ "source_id": "current-plan", "locator": "current-plan:3", "line": 3 }]
     },
     {
       "id": "api-contract",
@@ -26,7 +26,7 @@
       "dependencies": ["Discovery"],
       "evidence_grade": "exact",
       "evidence_reason": "Exact date evidence (YYYY-MM-DD) found in source text.",
-      "source_refs": [{ "sourceId": "current-plan", "line": 4 }]
+      "source_refs": [{ "source_id": "current-plan", "locator": "current-plan:4", "line": 4 }]
     },
     {
       "id": "checkout-qa",
@@ -39,7 +39,7 @@
       "dependencies": ["API contract"],
       "evidence_grade": "exact",
       "evidence_reason": "Exact date evidence (YYYY-MM-DD) found in source text.",
-      "source_refs": [{ "sourceId": "current-plan", "line": 5 }]
+      "source_refs": [{ "source_id": "current-plan", "locator": "current-plan:5", "line": 5 }]
     },
     {
       "id": "launch-decision",
@@ -51,7 +51,7 @@
       "dependencies": ["Checkout QA"],
       "evidence_grade": "exact",
       "evidence_reason": "Exact date evidence (YYYY-MM-DD) found in source text.",
-      "source_refs": [{ "sourceId": "current-plan", "line": 6 }]
+      "source_refs": [{ "source_id": "current-plan", "locator": "current-plan:6", "line": 6 }]
     },
     {
       "id": "release-notes",
@@ -64,7 +64,7 @@
       "dependencies": ["API contract"],
       "evidence_grade": "exact",
       "evidence_reason": "Exact date evidence (YYYY-MM-DD) found in source text.",
-      "source_refs": [{ "sourceId": "current-plan", "line": 7 }]
+      "source_refs": [{ "source_id": "current-plan", "locator": "current-plan:7", "line": 7 }]
     }
   ],
   "assumptions": [
