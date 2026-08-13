@@ -1,11 +1,27 @@
-export const SCHEMA_VERSION = "0.3.0";
+export const SCHEMA_VERSION = "0.4.0";
 export const EVIDENCE_GRADES = ["exact", "derived", "fuzzy", "missing"];
 export const EVIDENCE_DERIVATIONS = ["explicit", "natural", "none"];
 
 const DATE_PATTERN = /\b\d{4}-\d{2}-\d{2}\b/g;
 const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const DURATION_PATTERN = /^\d+[dwmy]$/;
+const MAX_CONTRACT_STRING_LENGTH = 2048;
+const MAX_DEPENDENCIES = 50;
+const MAX_SOURCE_REFS = 20;
+const MAX_WARNINGS = 50;
+const MAX_ASSUMPTIONS = 100;
+const MAX_CONTAINER_ENTRIES = 100;
+const MAX_CONTAINER_DEPTH = 8;
+const MAX_ITEMS = 100;
+const MAX_DANGEROUS_FIELDS = 50;
+const SOURCE_METADATA_WARNING = "Invalid or credential-bearing SourceRef metadata was omitted.";
+const CONTAINER_LIMIT_WARNING = "Evidence container exceeded the runtime safety bounds and was omitted.";
+const UNSAFE_ITEM_METADATA_WARNING = "Unsafe item metadata was omitted from the canonical timeline item.";
 const DEFAULT_MARKDOWN_SECTIONS = ["Timeline", "Milestones", "Next", "Risks And Blockers", "Follow-Ups"];
+const MANDATORY_ASSUMPTIONS = [
+  "No dates were inferred. Missing dates are reported as gaps for agent or user follow-up.",
+  "Critical path is not computed: it cannot be determined defensibly when dates or durations are missing."
+];
 const METADATA_LINE_PATTERN =
   /^(?:generated|timezone|time\s*zone|package|version|created|updated|last\s+updated)\s*:/i;
 const PROJECT_HEADER_PATTERN = /^project\s*:\s*(.+)$/i;
@@ -48,25 +64,26 @@ const EVIDENCE_REASONS = {
 };
 
 export function createTimeline(input = {}) {
-  const sources = Array.isArray(input.sources) ? input.sources : [];
-  const importedAssumptions = [];
+  input = input && typeof input === "object" && !Array.isArray(input) ? input : {};
   const noiseReport = createNoiseReport();
+  const sources = Array.isArray(input.sources) ? input.sources.slice(0, MAX_CONTAINER_ENTRIES) : [];
+  if (Array.isArray(input.sources) && input.sources.length > MAX_CONTAINER_ENTRIES) {
+    addWarning(noiseReport.warnings, CONTAINER_LIMIT_WARNING);
+  }
+  const importedAssumptions = [];
   const items = sources.flatMap((source, index) =>
     parseSource(source, index, importedAssumptions, input, noiseReport)
   );
   const timeline = normalizeTimeline({
     items,
-    assumptions: [
-      ...importedAssumptions,
-      "No dates were inferred. Missing dates are reported as gaps for agent or user follow-up.",
-      "Critical path is not computed: it cannot be determined defensibly when dates or durations are missing."
-    ],
+    assumptions: normalizeAssumptions(importedAssumptions, noiseReport.warnings),
     gaps: [],
     render: {
       audience: "TPM/PM",
       defaultFormats: ["mermaid_gantt", "mermaid_timeline", "markdown", "review_report"]
     }
   });
+  appendWarnings(noiseReport.warnings, timeline.warnings);
   const validation = validateTimeline(timeline);
   const validatedTimeline = {
     ...timeline,
@@ -174,7 +191,7 @@ export function validateTimeline(timeline = {}) {
         severity: "error",
         itemTitle: item.title,
         value: item.duration,
-        message: `Duration "${item.duration}" is malformed; expected a number with one of d, w, m, y (for example "5d").`
+        message: `Duration value is invalid; expected a positive integer followed by one of d, w, m, y (for example "5d").`
       }));
     }
 
@@ -267,7 +284,7 @@ export function validateTimeline(timeline = {}) {
     }
   }
 
-  return { gaps, issues };
+  return { gaps, issues, warnings: normalized.warnings };
 }
 
 export function renderTimeline(timeline = {}, options = {}) {
@@ -352,34 +369,47 @@ export function refineTimeline(timeline = {}, refinement = {}) {
 }
 
 export function normalizeTimeline(timeline = {}) {
-  const items = Array.isArray(timeline.items)
-    ? timeline.items.map((item) => normalizeItem(item, item.source_refs))
-    : [];
+  timeline = timeline && typeof timeline === "object" && !Array.isArray(timeline) ? timeline : {};
+  const warnings = [];
+  const schemaVersion = normalizeContractVersion(timeline.schema_version, "schema_version", warnings);
+  const artifactVersion = normalizeContractVersion(timeline.version, "version", warnings);
+  const rawItems = Array.isArray(timeline.items) ? timeline.items.slice(0, MAX_ITEMS) : [];
+  if (Array.isArray(timeline.items) && timeline.items.length > rawItems.length) {
+    addWarning(warnings, CONTAINER_LIMIT_WARNING);
+  }
+  const items = rawItems.map((item) => normalizeItem(
+    item,
+    item && typeof item === "object" && !Array.isArray(item) ? item.source_refs : [],
+    warnings
+  ));
   const milestones = items.filter((item) => item.type === "milestone");
 
   return {
-    kind: timeline.kind || "timeline",
-    schema_version: timeline.schema_version || SCHEMA_VERSION,
-    version: timeline.version || SCHEMA_VERSION,
+    kind: normalizeItemKind(timeline.kind, warnings) || "timeline",
+    schema_version: schemaVersion,
+    version: artifactVersion,
     items,
     milestones,
-    assumptions: Array.isArray(timeline.assumptions) ? [...timeline.assumptions] : [],
-    gaps: Array.isArray(timeline.gaps) ? [...timeline.gaps] : [],
-    issues: Array.isArray(timeline.issues) ? [...timeline.issues] : [],
-    render: timeline.render && typeof timeline.render === "object" ? { ...timeline.render } : {}
+    assumptions: normalizeStringContainer(timeline.assumptions, warnings, MAX_ASSUMPTIONS),
+    gaps: normalizeEvidenceContainers(timeline.gaps, warnings),
+    issues: normalizeEvidenceContainers(timeline.issues, warnings),
+    render: normalizeRenderContainer(timeline.render, warnings),
+    warnings
   };
 }
 
 function parseSource(source, index, importedAssumptions, input, noiseReport) {
   const normalizedSource = {
-    id: source?.id || `source-${index + 1}`,
-    type: source?.type || "text",
-    profile: source?.profile || "unknown",
-    source_system: source?.source_system,
-    content: source?.content ?? "",
-    path: source?.path || source?.file_path || source?.filePath
+    id: safeSourceId(source?.id, `source-${index + 1}`),
+    type: ["text", "json", "csv", "markdown"].includes(source?.type) ? source.type : "text",
+    profile: safeSourceSystem(source?.profile, noiseReport.warnings) || "unknown",
+    source_system: safeSourceSystem(source?.source_system, noiseReport.warnings),
+    content: source?.content === undefined ? "" : source.content,
+    path: firstSafeSourcePath(
+      [source?.path, source?.file_path, source?.filePath],
+      noiseReport.warnings
+    )
   };
-
   const before = snapshotIgnored(noiseReport);
   let parsed;
   if (normalizedSource.type === "json") {
@@ -411,15 +441,29 @@ function parseJsonSource(source, importedAssumptions, warnings = null) {
     const detail = error instanceof Error ? error.message : String(error);
     throw new Error(`Unable to parse JSON source "${source.id}": ${detail}`);
   }
-  const rawItems = Array.isArray(parsed) ? parsed : parsed.items ?? [];
-
-  if (Array.isArray(parsed.assumptions)) {
-    importedAssumptions.push(...parsed.assumptions.filter((assumption) => typeof assumption === "string"));
+  const isJsonContainer = Array.isArray(parsed) || (parsed !== null && typeof parsed === "object");
+  if (!isJsonContainer) {
+    addWarning(warnings, "JSON source did not contain an object or array; an empty timeline was produced.");
+    return [];
   }
 
-  return rawItems.map((item, index) =>
-    normalizeItem(item, item.source_refs ?? [{ source_id: source.id, line: index + 1 }], warnings)
-  );
+  const rawItems = Array.isArray(parsed) ? parsed : parsed.items ?? [];
+  const boundedItems = Array.isArray(rawItems) ? rawItems.slice(0, MAX_ITEMS) : [];
+  if (Array.isArray(rawItems) && rawItems.length > boundedItems.length) {
+    addWarning(warnings, CONTAINER_LIMIT_WARNING);
+  }
+
+  if (!Array.isArray(parsed)) {
+    importedAssumptions.push(...normalizeStringContainer(parsed.assumptions, warnings, MAX_ASSUMPTIONS));
+  }
+
+  return boundedItems.flatMap((item, index) => {
+    if (!item || typeof item !== "object" || Array.isArray(item)) {
+      addWarning(warnings, "JSON source contained a non-object timeline item; it was omitted.", true);
+      return [];
+    }
+    return [normalizeItem(item, item.source_refs ?? [{ source_id: source.id, line: index + 1 }], warnings)];
+  });
 }
 
 function parseCsvSource(source) {
@@ -737,6 +781,7 @@ function markdownRecordToItem(record, heading) {
 }
 
 function normalizeItem(item = {}, sourceRefs = [], warnings = null) {
+  item = item && typeof item === "object" && !Array.isArray(item) ? item : {};
   const dependencies = Array.isArray(item.dependencies)
     ? item.dependencies
     : typeof item.dependencies === "string"
@@ -765,29 +810,36 @@ function normalizeItem(item = {}, sourceRefs = [], warnings = null) {
     : rawTitle === undefined;
   // Same for dangerous fields: they are detected on the raw source item, and
   // re-normalizing a normalized item must not silently lose the report.
-  const dangerousFields = Array.isArray(item.dangerous_fields) && item.dangerous_fields.length > 0
-    ? item.dangerous_fields
-    : detectDangerousFields(item);
+  const detectedDangerousFields = detectDangerousFields(item);
+  const suppliedDangerousFields = Array.isArray(item.dangerous_fields) ? item.dangerous_fields : [];
+  // Detected keys are placed first so a bounded supplied list can never hide a
+  // dangerous key present on the raw item (especially exec/code-execution keys).
+  const dangerousFields = normalizeDangerousFields(suppliedDangerousFields, warnings, detectedDangerousFields);
+  const normalizedKind = normalizeItemKind(item.kind, warnings);
+  const type = item.type === "milestone" || normalizedKind === "milestone" ? "milestone" : "task";
 
   return {
-    id: item.id || slugify(rawTitle || "untitled"),
-    title: rawTitle ?? "Untitled",
-    type: item.type === "milestone" ? "milestone" : "task",
+    id: boundedText(item.id || slugify(rawTitle || "untitled")),
+    title: boundedText(rawTitle ?? "Untitled"),
+    type,
     start,
     end,
-    duration: blankToUndefined(item.duration),
-    time_window: timeWindow,
-    date_text: dateText,
+    duration: boundedText(item.duration),
+    time_window: boundedText(timeWindow),
+    date_text: boundedText(dateText),
     exact_date_needed: Boolean(timeWindow !== undefined && start === undefined && end === undefined),
-    owner: blankToUndefined(item.owner),
-    status: blankToUndefined(item.status) || "unknown",
-    dependencies: dependencies.map((dependency) => String(dependency).trim()).filter(Boolean),
+    owner: boundedText(item.owner),
+    status: boundedText(item.status) || "unknown",
+    dependencies: dependencies
+      .map((dependency) => boundedText(dependency))
+      .filter(Boolean)
+      .slice(0, MAX_DEPENDENCIES),
     date_derivation: dateDerivation,
     evidence_grade: evidenceGrade,
-    evidence_reason: evidenceReasonFor(evidenceGrade, { rejected }),
+    evidence_reason: boundedText(evidenceReasonFor(evidenceGrade, { rejected })),
     missing_title: missingTitle,
     dangerous_fields: dangerousFields,
-    source_refs: normalizeSourceRefs(sourceRefs, warnings)
+    source_refs: normalizeSourceRefs(sourceRefs, warnings).slice(0, MAX_SOURCE_REFS)
   };
 }
 
@@ -832,6 +884,39 @@ function detectDangerousFields(item) {
   return Object.keys(item || {}).filter((key) => DANGEROUS_FIELD_NAMES.includes(key));
 }
 
+function normalizeItemKind(value, warnings) {
+  const raw = blankToUndefined(value);
+  if (raw === undefined) return undefined;
+  if (isUnsafeContractString(raw)) {
+    addWarning(warnings, UNSAFE_ITEM_METADATA_WARNING, true);
+    return undefined;
+  }
+  return boundedText(raw);
+}
+
+function normalizeDangerousFields(values, warnings, requiredValues = []) {
+  const bounded = values.slice(0, MAX_DANGEROUS_FIELDS);
+  if (values.length > bounded.length) addWarning(warnings, CONTAINER_LIMIT_WARNING);
+  const seen = new Set();
+  const normalizeValue = (value) => {
+    if (typeof value !== "string") return [];
+    const raw = blankToUndefined(value);
+    if (raw === undefined) return [];
+    if (isRawEvidenceKey(raw) || isUnsafeContractString(raw)) {
+      addWarning(warnings, UNSAFE_ITEM_METADATA_WARNING, true);
+      return [];
+    }
+    const normalized = boundedText(raw);
+    if (!normalized || seen.has(normalized)) return [];
+    seen.add(normalized);
+    return [normalized];
+  };
+  return [
+    ...requiredValues.flatMap(normalizeValue),
+    ...bounded.flatMap(normalizeValue)
+  ].slice(0, MAX_DANGEROUS_FIELDS);
+}
+
 function normalizeDateValue(value) {
   const trimmed = blankToUndefined(value);
   if (trimmed === undefined) return undefined;
@@ -859,55 +944,69 @@ function normalizeNaturalDateText(text = "") {
 }
 
 // Canonical SourceRef fields (truth-tools contracts, Draft 2020-12). Fields
-// outside this set are dropped when normalizing input references.
+// outside this set are dropped when normalizing input references. `text` is
+// accepted only as legacy input and is never copied to canonical output.
 const SOURCE_REF_FIELDS = new Set([
   "source_id", "locator", "note", "path", "url", "observed_at",
   "source_updated_at", "revision", "content_hash",
-  "heading", "tableRow", "line", "text"
+  "heading", "tableRow", "line"
 ]);
 
 // Normalizes raw source references to the canonical SourceRef contract:
 // required source_id + locator, with Timeline Truth provenance passthrough
-// (path, heading, tableRow, line, text). The deprecated legacy "sourceId"
-// field is accepted and converted explicitly; plain-string references are also
-// accepted and converted. A deprecation warning is emitted (when a collector
-// is supplied) so callers can surface the migration.
+// (path, heading, tableRow, line). The deprecated legacy "sourceId" field is
+// accepted and converted explicitly; plain-string references are also
+// accepted and converted. Raw legacy evidence is stripped and warned about.
 function normalizeSourceRefs(sourceRefs, warnings = null) {
   const refs = [];
-  for (const raw of Array.isArray(sourceRefs) ? sourceRefs : []) {
+  const boundedSourceRefs = Array.isArray(sourceRefs) ? sourceRefs.slice(0, MAX_SOURCE_REFS) : [];
+  if (Array.isArray(sourceRefs) && sourceRefs.length > MAX_SOURCE_REFS) {
+    addWarning(warnings, CONTAINER_LIMIT_WARNING);
+  }
+  for (const raw of boundedSourceRefs) {
     let entry = raw;
     if (typeof raw === "string") {
-      if (warnings) warnings.push(`Deprecated plain-string source reference "${raw}"; use { "source_id": "${raw}", "locator": "<pointer>" }.`);
+      addWarning(warnings, "Deprecated plain-string source reference was normalized; use a structured locator reference.");
       entry = { source_id: raw };
     }
     if (!entry || typeof entry !== "object") continue;
 
-    if (Object.hasOwn(entry, "sourceId") && !Object.hasOwn(entry, "source_id")) {
-      if (warnings) warnings.push(`Deprecated "sourceId" on a source reference; use "source_id" (value "${String(entry.sourceId)}").`);
+    if (hasRawEvidenceKey(entry)) {
+      addRawEvidenceWarning(warnings);
     }
-    const sourceId = blankToUndefined(entry.source_id) ?? blankToUndefined(entry.sourceId);
+
+    if (Object.hasOwn(entry, "sourceId") && !Object.hasOwn(entry, "source_id")) {
+      addWarning(warnings, "Deprecated sourceId field on a source reference was normalized; use source_id.");
+    }
+    const sourceId = safeSourceId(blankToUndefined(entry.source_id) ?? blankToUndefined(entry.sourceId));
     if (sourceId === undefined) continue;
 
+    const path = firstSafeSourcePath(
+      [entry.path, entry.file_path, entry.filePath],
+      warnings
+    );
+    const rawLocator = blankToUndefined(entry.locator);
+    const locator = safeLocator(rawLocator) ?? deriveLocator({
+      sourceId, path, line: entry.line, tableRow: entry.tableRow, heading: entry.heading
+    });
+    if (rawLocator !== undefined && safeLocator(rawLocator) === undefined && warnings) {
+      addWarning(warnings, "Credential-bearing URL in a source reference was omitted; a safe locator was used when available.");
+    }
+    if (locator === undefined) continue;
+
     refs.push(compactObject({
-      source_id: sourceId,
-      locator: blankToUndefined(entry.locator) ?? deriveLocator({
-        sourceId,
-        path: entry.path,
-        line: entry.line,
-        tableRow: entry.tableRow,
-        heading: entry.heading
-      }),
-      note: blankToUndefined(entry.note),
-      path: blankToUndefined(entry.path),
-      url: blankToUndefined(entry.url),
-      observed_at: blankToUndefined(entry.observed_at),
-      source_updated_at: blankToUndefined(entry.source_updated_at),
-      revision: entry.revision === undefined ? undefined : entry.revision,
-      content_hash: blankToUndefined(entry.content_hash),
-      heading: blankToUndefined(entry.heading),
+      source_id: boundedText(sourceId),
+      locator: boundedText(locator),
+      note: safeSourceNote(entry.note, warnings),
+      path,
+      url: normalizeSafeUrl(entry.url, warnings),
+      observed_at: safeSourceDateTime(entry.observed_at, warnings),
+      source_updated_at: safeSourceDateTime(entry.source_updated_at, warnings),
+      revision: safeSourceRevision(entry.revision, warnings),
+      content_hash: safeContentHash(entry.content_hash, warnings),
+      heading: safeSourceHeading(entry.heading, warnings),
       tableRow: positiveInteger(entry.tableRow),
       line: positiveInteger(entry.line),
-      text: blankToUndefined(entry.text)
     }));
   }
   return refs;
@@ -918,12 +1017,393 @@ function normalizeSourceRefs(sourceRefs, warnings = null) {
 // then table row, then heading). Preserves the original source location while
 // keeping the locator stable for the same evidence.
 function deriveLocator({ sourceId, path, line, tableRow, heading }) {
-  const base = blankToUndefined(path) || blankToUndefined(sourceId);
+  const base = safeSourcePath(path) || safeSourceId(sourceId);
   if (base === undefined) return undefined;
   if (positiveInteger(line) !== undefined) return `${base}:${line}`;
   if (positiveInteger(tableRow) !== undefined) return `${base}:row ${tableRow}`;
-  if (blankToUndefined(heading) !== undefined) return `${base}#${heading}`;
+  const safeHeading = safeSourceHeading(heading);
+  if (safeHeading !== undefined) return `${base}#${safeHeading}`;
   return base;
+}
+
+// Canonical projections must not carry credential-bearing HTTP(S) pointers.
+// Non-URL locators remain valid paths, keys, and stable source ids.
+function safeLocator(value) {
+  const raw = blankToUndefined(value);
+  if (raw === undefined) return undefined;
+  return containsUnsafeSourceText(raw) ? undefined : boundedText(raw);
+}
+
+function safeHttpUrl(value) {
+  const raw = blankToUndefined(value);
+  if (raw === undefined || containsUnsafeHttpUrl(raw)) return undefined;
+  try {
+    const url = new URL(raw);
+    return ["http:", "https:"].includes(url.protocol) ? url.toString() : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function boundedText(value, maxLength = MAX_CONTRACT_STRING_LENGTH) {
+  const normalized = blankToUndefined(value);
+  return normalized === undefined
+    ? undefined
+    : normalized.replace(/[\u0000-\u001f\u007f-\u009f]+/g, " ").trim().slice(0, maxLength);
+}
+
+function normalizeSafeUrl(value, warnings) {
+  const raw = blankToUndefined(value);
+  const safe = safeHttpUrl(raw);
+  if (raw !== undefined && safe === undefined && warnings) {
+    addWarning(warnings, "Credential-bearing or invalid source URL was omitted from the canonical reference.");
+  }
+  return safe === undefined ? undefined : boundedText(safe);
+}
+
+function safeSourcePath(value) {
+  const raw = blankToUndefined(value);
+  return raw === undefined || containsUnsafeSourceText(raw) ? undefined : boundedText(raw);
+}
+
+function safeSourceHeading(value, warnings = null) {
+  const raw = blankToUndefined(value);
+  if (raw === undefined) return undefined;
+  if (containsUnsafeSourceText(raw)) {
+    addWarning(warnings, SOURCE_METADATA_WARNING, true);
+    return undefined;
+  }
+  return boundedText(raw);
+}
+
+function safeSourceId(value, fallback = undefined) {
+  const raw = blankToUndefined(value);
+  if (raw === undefined) return fallback;
+  return containsUnsafeSourceText(raw) ? fallback : boundedText(raw);
+}
+
+const MAX_URL_DECODE_LAYERS = 8;
+const SUSPICIOUS_URL_DECODE_LAYERS = 4;
+const RAW_EVIDENCE_KEYS = new Set([
+  "text", "source_excerpt", "source_text", "source_body", "body", "content",
+  "contents", "source_content", "raw", "raw_text", "raw_body", "raw_content",
+  "rawcontent", "raw_contents", "raw_excerpt", "excerpt", "verbatim",
+  "evidence_text", "evidence_excerpt", "evidence_content", "original_text",
+  "original_body", "original_content",
+  "sourceexcerpt", "sourcetext", "sourcebody", "sourcecontent", "rawtext",
+  "rawbody", "rawexcerpt", "evidencetext", "evidenceexcerpt", "evidencecontent",
+  "originaltext", "originalbody", "originalcontent"
+]);
+const RAW_EVIDENCE_WARNING = "Raw evidence content was omitted from a canonical evidence container.";
+const UNSAFE_NOTE_PATTERN = /\b(?:source[_ -]?(?:excerpt|text|body)|raw[_ -]?(?:text|body|content)|verbatim|evidence[_ -]?(?:excerpt|text))\b|[\r\n]|\b(?:authorization|bearer|basic)\s+[A-Za-z0-9+/=_-]{8,}\b/i;
+const CREDENTIAL_ASSIGNMENT_PATTERN = /(?:^|[?&#;\s"'([{,])([^?&#;\s"'<>:=,]+)\s*[:=]/g;
+const CREDENTIAL_KEY_NAMES = new Set([
+  "api_key", "x_api_key", "authorization", "auth", "password", "secret",
+  "session_id", "signature", "sig", "token", "access_token", "refresh_token",
+  "aws_access_key_id", "client_assertion", "access_key", "cookie"
+]);
+const CREDENTIAL_KEY_COMPONENTS = new Set([
+  "authorization", "auth", "password", "secret", "token", "session", "cookie", "sig", "signature"
+]);
+
+function normalizeContractVersion(value, field, warnings) {
+  if (value !== undefined && value !== null && String(value) !== SCHEMA_VERSION) {
+    addWarning(warnings, `Legacy ${field} metadata was replaced with the current contract version for compatibility.`);
+  }
+  return SCHEMA_VERSION;
+}
+
+function hasRawEvidenceKey(value) {
+  return Object.keys(value || {}).some((key) => isRawEvidenceKey(key));
+}
+
+function isRawEvidenceKey(key) {
+  const normalized = normalizeEvidenceKey(key);
+  return RAW_EVIDENCE_KEYS.has(normalized);
+}
+
+function normalizeEvidenceKey(key) {
+  return String(key)
+    .trim()
+    .replace(/([a-z0-9])([A-Z])/g, "$1_$2")
+    .toLowerCase()
+    .replace(/[\s.-]+/g, "_");
+}
+
+function addRawEvidenceWarning(warnings) {
+  addWarning(warnings, RAW_EVIDENCE_WARNING, true);
+}
+
+function addWarning(warnings, warning, dedupe = false) {
+  if (!Array.isArray(warnings) || warnings.length >= MAX_WARNINGS) return;
+  if (dedupe && warnings.includes(warning)) return;
+  warnings.push(warning);
+}
+
+function appendWarnings(target, source) {
+  if (!Array.isArray(source)) return;
+  for (const warning of source) {
+    if (target.length >= MAX_WARNINGS) break;
+    target.push(warning);
+  }
+}
+
+function safeSourceSystem(value, warnings) {
+  const raw = blankToUndefined(value);
+  if (raw === undefined) return undefined;
+  if (containsUnsafeHttpUrl(raw) || containsCredentialAssignment(raw) || UNSAFE_NOTE_PATTERN.test(raw)) {
+    addRawEvidenceWarning(warnings);
+    return undefined;
+  }
+  return boundedText(raw);
+}
+
+function firstSafeSourcePath(values, warnings) {
+  for (const value of values) {
+    const raw = blankToUndefined(value);
+    if (raw === undefined) continue;
+    const safe = safeSourcePath(raw);
+    if (safe !== undefined) return safe;
+    addRawEvidenceWarning(warnings);
+  }
+  return undefined;
+}
+
+function safeSourceNote(value, warnings) {
+  const raw = blankToUndefined(value);
+  if (raw === undefined) return undefined;
+  if (containsUnsafeHttpUrl(raw) || containsCredentialAssignment(raw) || UNSAFE_NOTE_PATTERN.test(raw)) {
+    addRawEvidenceWarning(warnings);
+    return undefined;
+  }
+  return boundedText(raw);
+}
+
+const RFC3339_DATETIME_PATTERN = /^(\d{4}-\d{2}-\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d{1,9})?(Z|[+-](\d{2}):(\d{2}))$/;
+const SHA256_PATTERN = /^(?:sha256:)?[a-f0-9]{64}$/;
+
+function safeSourceDateTime(value, warnings) {
+  const raw = blankToUndefined(value);
+  if (raw === undefined) return undefined;
+  const match = raw?.match(RFC3339_DATETIME_PATTERN);
+  const validClock = match && Number(match[2]) <= 23 && Number(match[3]) <= 59 && Number(match[4]) <= 59;
+  const validOffset = match?.[5] === "Z" || (Number(match?.[6]) <= 23 && Number(match?.[7]) <= 59);
+  if (containsUnsafeHttpUrl(raw) || containsCredentialAssignment(raw) ||
+      !match || !validClock || !validOffset || !isRealCalendarDate(match[1])) {
+    addWarning(warnings, SOURCE_METADATA_WARNING, true);
+    return undefined;
+  }
+  const date = new Date(raw);
+  if (Number.isNaN(date.getTime())) {
+    addWarning(warnings, SOURCE_METADATA_WARNING, true);
+    return undefined;
+  }
+  return boundedText(raw);
+}
+
+function safeSourceRevision(value, warnings) {
+  if (value === undefined || value === null) return undefined;
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string") {
+    const raw = blankToUndefined(value);
+    if (raw !== undefined && !containsUnsafeHttpUrl(raw) && !containsCredentialAssignment(raw)) {
+      return boundedText(raw);
+    }
+  }
+  addWarning(warnings, SOURCE_METADATA_WARNING, true);
+  return undefined;
+}
+
+function safeContentHash(value, warnings) {
+  const raw = blankToUndefined(value);
+  if (raw === undefined) return undefined;
+  if (SHA256_PATTERN.test(raw) && !containsUnsafeHttpUrl(raw) && !containsCredentialAssignment(raw)) {
+    return raw;
+  }
+  addWarning(warnings, SOURCE_METADATA_WARNING, true);
+  return undefined;
+}
+
+function decodeUriToFixpoint(value) {
+  let decoded = String(value);
+  let layers = 0;
+  for (; layers < MAX_URL_DECODE_LAYERS; layers += 1) {
+    let next;
+    try {
+      next = decodeURIComponent(decoded.replace(/\+/g, " "));
+    } catch {
+      return { value: decoded, layers, excessive: false };
+    }
+    if (next === decoded) return { value: decoded, layers, excessive: false };
+    decoded = next;
+  }
+
+  try {
+    return {
+      value: decoded,
+      layers,
+      excessive: decodeURIComponent(decoded.replace(/\+/g, " ")) !== decoded
+    };
+  } catch {
+    return { value: decoded, layers, excessive: false };
+  }
+}
+
+function containsUnsafeHttpUrl(value, seen = new Set()) {
+  const raw = blankToUndefined(value);
+  if (raw === undefined || seen.has(raw)) return false;
+  seen.add(raw);
+  const decoded = decodeUriToFixpoint(raw);
+  if (decoded.excessive) return true;
+  if (isUnsafeHttpUrl(raw, seen) || isUnsafeHttpUrl(decoded.value, seen)) return true;
+  if (decoded.layers >= SUSPICIOUS_URL_DECODE_LAYERS && /https?:\/\//i.test(decoded.value)) return true;
+  for (const match of decoded.value.matchAll(/https?:\/\/[^\s"'<>]+/gi)) {
+    if (isUnsafeHttpUrl(match[0].replace(/[),.;]+$/, ""), seen)) return true;
+  }
+  return false;
+}
+
+function isUnsafeHttpUrl(value, seen = new Set()) {
+  try {
+    const url = new URL(value);
+    if (!["http:", "https:"].includes(url.protocol)) return false;
+    if (url.username || url.password) return true;
+    const keys = [
+      ...url.searchParams.keys(),
+      ...String(url.hash).split(/[&#;#\s?]+/).map((part) => part.split("=", 1)[0])
+    ];
+    const nestedValues = [...url.searchParams.values(), String(url.hash)];
+    return keys.some((key) => isCredentialKey(key)) ||
+      nestedValues.some((part) => containsUnsafeHttpUrl(part, seen));
+  } catch {
+    return false;
+  }
+}
+
+function isCredentialKey(value) {
+  const decoded = decodeUriToFixpoint(String(value || "").trim());
+  if (decoded.excessive) return true;
+  const key = normalizeCredentialKey(decoded.value);
+  return CREDENTIAL_KEY_NAMES.has(key) ||
+    key.split("_").filter(Boolean).some((part) => CREDENTIAL_KEY_COMPONENTS.has(part));
+}
+
+function normalizeCredentialKey(value) {
+  return String(value)
+    .replace(/^[\[({]+|[\])}]+$/g, "")
+    // Preserve acronym boundaries: AWSAccessKeyId -> aws_access_key_id.
+    .replace(/([A-Z]+)([A-Z][a-z])/g, "$1_$2")
+    .replace(/([a-z0-9])([A-Z])/g, "$1_$2")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+}
+
+function containsCredentialAssignment(value) {
+  const candidates = [String(value), decodeUriToFixpoint(value).value];
+  return candidates.some((candidate) => {
+    for (const match of candidate.matchAll(CREDENTIAL_ASSIGNMENT_PATTERN)) {
+      if (isCredentialKey(match[1])) return true;
+    }
+    return false;
+  });
+}
+
+function normalizeStringContainer(values, warnings, maxEntries) {
+  if (!Array.isArray(values)) return [];
+  const bounded = values.slice(0, maxEntries);
+  if (values.length > bounded.length) addWarning(warnings, CONTAINER_LIMIT_WARNING);
+  return bounded.flatMap((value) => {
+    if (typeof value !== "string") return [];
+    const normalized = boundedText(value);
+    if (!normalized) return [];
+    if (isUnsafeContractString(normalized)) {
+      addWarning(warnings, "Unsafe assumption string was omitted from canonical timeline metadata.", true);
+      return [];
+    }
+    return [normalized];
+  });
+}
+
+function isUnsafeContractString(value) {
+  return UNSAFE_NOTE_PATTERN.test(value) || containsCredentialAssignment(value) || containsUnsafeHttpUrl(value);
+}
+
+function containsUnsafeSourceText(value) {
+  const raw = String(value);
+  return /[\u0000-\u001f\u007f-\u009f]/.test(raw) ||
+    containsUnsafeHttpUrl(raw) ||
+    containsCredentialAssignment(raw);
+}
+
+function normalizeAssumptions(importedAssumptions, warnings) {
+  const mandatory = normalizeStringContainer(MANDATORY_ASSUMPTIONS, warnings, MANDATORY_ASSUMPTIONS.length);
+  const imported = normalizeStringContainer(importedAssumptions, warnings, MAX_ASSUMPTIONS)
+    .filter((assumption) => !mandatory.includes(assumption));
+  const availableSlots = Math.max(0, MAX_ASSUMPTIONS - mandatory.length);
+  if (imported.length > availableSlots) addWarning(warnings, CONTAINER_LIMIT_WARNING);
+  // Keep imported assumptions in their original order, but reserve the final
+  // slots for mandatory assumptions so they cannot be crowded out by imports.
+  return [...imported.slice(0, availableSlots), ...mandatory];
+}
+
+function normalizeRenderContainer(value, warnings) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  return normalizeEvidenceValue(value, warnings);
+}
+
+function normalizeEvidenceContainers(containers, warnings) {
+  if (!Array.isArray(containers)) return [];
+  const bounded = containers.slice(0, MAX_CONTAINER_ENTRIES);
+  if (containers.length > bounded.length) addWarning(warnings, CONTAINER_LIMIT_WARNING);
+  return bounded.flatMap((container) => {
+    if (container === null || container === undefined) return [];
+    const normalized = normalizeEvidenceValue(container, warnings);
+    return normalized === null || normalized === undefined ? [] : [normalized];
+  });
+}
+
+function normalizeEvidenceValue(value, warnings, depth = 0, ancestors = new Set()) {
+  if (value === null || value === undefined) return undefined;
+  if (typeof value === "string") return boundedText(value);
+  if (typeof value !== "object") return value;
+  if (depth >= MAX_CONTAINER_DEPTH || ancestors.has(value)) {
+    addWarning(warnings, CONTAINER_LIMIT_WARNING);
+    return undefined;
+  }
+
+  const nextAncestors = new Set(ancestors);
+  nextAncestors.add(value);
+  if (Array.isArray(value)) {
+    const bounded = value.slice(0, MAX_CONTAINER_ENTRIES);
+    if (value.length > bounded.length) addWarning(warnings, CONTAINER_LIMIT_WARNING);
+    return bounded
+      .map((entry) => normalizeEvidenceValue(entry, warnings, depth + 1, nextAncestors))
+      .filter((entry) => entry !== undefined && entry !== null);
+  }
+
+  const normalized = {};
+  let entryCount = 0;
+  for (const key in value) {
+    if (!Object.hasOwn(value, key)) continue;
+    if (entryCount >= MAX_CONTAINER_ENTRIES) {
+      addWarning(warnings, CONTAINER_LIMIT_WARNING);
+      break;
+    }
+    entryCount += 1;
+    const entry = value[key];
+    if (isRawEvidenceKey(key)) {
+      addRawEvidenceWarning(warnings);
+      continue;
+    }
+    const normalizedEntry = key === "source_refs"
+      ? normalizeSourceRefs(entry, warnings)
+      : normalizeEvidenceValue(entry, warnings, depth + 1, nextAncestors);
+    if (normalizedEntry !== undefined && normalizedEntry !== null) {
+      normalized[key] = normalizedEntry;
+    }
+  }
+  return normalized;
 }
 
 function positiveInteger(value) {
@@ -1049,20 +1529,20 @@ function renderMarkdown(timeline) {
 
   for (const item of timeline.items) {
     const window = item.start ? `${item.start}${item.end ? ` to ${item.end}` : item.duration ? ` for ${item.duration}` : ""}` : "date needed";
-    lines.push(`- **${item.title}** (${item.type}, ${item.status}) - ${window}${item.owner ? ` - owner: ${item.owner}` : ""}`);
+    lines.push(`- **${escapeMarkdown(item.title)}** (${escapeMarkdown(item.type)}, ${escapeMarkdown(item.status)}) - ${escapeMarkdown(window)}${item.owner ? ` - owner: ${escapeMarkdown(item.owner)}` : ""}`);
   }
 
   if (timeline.gaps.length > 0) {
     lines.push("", "## Gaps");
     for (const gap of timeline.gaps) {
-      lines.push(`- ${gap.itemTitle}: ${gap.field} - ${gap.question}`);
+      lines.push(`- ${escapeMarkdown(gap.itemTitle)}: ${escapeMarkdown(gap.field)} - ${escapeMarkdown(gap.question)}`);
     }
   }
 
   if (timeline.assumptions.length > 0) {
     lines.push("", "## Assumptions");
     for (const assumption of timeline.assumptions) {
-      lines.push(`- ${assumption}`);
+      lines.push(`- ${escapeMarkdown(assumption)}`);
     }
   }
 
@@ -1075,32 +1555,32 @@ function renderReviewReport(timeline) {
 
   for (const item of timeline.items) {
     const window = item.start ? `${item.start}${item.end ? ` to ${item.end}` : item.duration ? ` for ${item.duration}` : ""}` : item.time_window || "date needed";
-    lines.push(`- **${item.title}** (${item.type}, ${item.status}) - ${window}${item.owner ? ` - owner: ${item.owner}` : ""}`);
-    lines.push(`  - Evidence: ${item.evidence_grade} - ${item.evidence_reason}`);
+    lines.push(`- **${escapeMarkdown(item.title)}** (${escapeMarkdown(item.type)}, ${escapeMarkdown(item.status)}) - ${escapeMarkdown(window)}${item.owner ? ` - owner: ${escapeMarkdown(item.owner)}` : ""}`);
+    lines.push(`  - Evidence: ${escapeMarkdown(item.evidence_grade)} - ${escapeMarkdown(item.evidence_reason)}`);
     if (item.source_refs.length > 0) {
-      lines.push(`  - Source: ${formatSourceRef(item.source_refs[0])}`);
+      lines.push(`  - Source: ${escapeMarkdown(formatSourceRef(item.source_refs[0]))}`);
     }
   }
 
   if (timeline.gaps.length > 0) {
     lines.push("", "### Follow-Up Questions");
     for (const followup of followups.all) {
-      lines.push(`- ${followup.itemTitle}${followup.owner ? ` (${followup.owner})` : ""}: ${followup.question}`);
+      lines.push(`- ${escapeMarkdown(followup.itemTitle)}${followup.owner ? ` (${escapeMarkdown(followup.owner)})` : ""}: ${escapeMarkdown(followup.question)}`);
     }
   }
 
   if (timeline.issues.length > 0) {
     lines.push("", "### Issues");
     for (const issue of timeline.issues) {
-      const suggestions = issue.suggestions?.length ? ` Suggestions: ${issue.suggestions.join(", ")}.` : "";
-      lines.push(`- ${issue.severity}: ${issue.message}${suggestions}`);
+      const suggestions = issue.suggestions?.length ? ` Suggestions: ${issue.suggestions.map(escapeMarkdown).join(", ")}.` : "";
+      lines.push(`- ${escapeMarkdown(issue.severity)}: ${escapeMarkdown(issue.message)}${suggestions}`);
     }
   }
 
   if (timeline.assumptions.length > 0) {
     lines.push("", "### Assumptions");
     for (const assumption of timeline.assumptions) {
-      lines.push(`- ${assumption}`);
+      lines.push(`- ${escapeMarkdown(assumption)}`);
     }
   }
 
@@ -1157,11 +1637,18 @@ function groupBy(values, keyFn) {
 }
 
 function formatSourceRef(sourceRef) {
-  const parts = [sourceRef.source_id || sourceRef.sourceId];
+  const sourceId = sourceRef.source_id || sourceRef.sourceId;
+  const parts = [sourceId && sourceRef.locator ? `${sourceId} @ ${sourceRef.locator}` : sourceId];
   if (sourceRef.path) parts.push(sourceRef.path);
   if (sourceRef.heading) parts.push(`heading "${sourceRef.heading}"`);
   if (sourceRef.line) parts.push(`line ${sourceRef.line}`);
   return parts.filter(Boolean).join(", ");
+}
+
+function escapeMarkdown(value) {
+  return String(value ?? "")
+    .replace(/[\\`*_[\]{}()<>#+.!|~-]/g, "\\$&")
+    .replace(/[\r\n]/g, " ");
 }
 
 function parseCsv(content) {

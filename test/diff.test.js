@@ -197,3 +197,26 @@ test("renderDiffMarkdown surfaces ambiguous matches", () => {
   assert.match(markdown, /matches 2 current items by id "dup"/);
   assert.match(markdown, /\| Ambiguous matches \| 1 \|/);
 });
+
+test("renderDiffMarkdown escapes untrusted labels, values, messages, and newlines", () => {
+  const markdown = renderDiffMarkdown({
+    baseline: { label: "base|[x]\n#", item_count: 1 },
+    current: { label: "current`*", item_count: 1 },
+    summary: {},
+    changes: [{
+      type: "status_changed",
+      itemTitle: "Title *\nnext",
+      old: "old|value",
+      new: "new`value"
+    }],
+    ambiguities: [{ message: "message [x]\n- injected" }],
+    new_issues: [{ message: "issue **bold**\nnext" }]
+  });
+
+  assert.doesNotMatch(markdown, /\r|\n- injected|\nnext/);
+  assert.match(markdown, /base\\\|\\\[x\\\] \\\#/);
+  assert.match(markdown, /Title \\\* next/);
+  assert.match(markdown, /old\\\|value/);
+  assert.match(markdown, /new\\`value/);
+  assert.match(markdown, /issue \\\*\\\*bold\\\*\\\*/);
+});

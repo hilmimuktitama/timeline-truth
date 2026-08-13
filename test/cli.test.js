@@ -85,7 +85,7 @@ test("runTimelineCli diff returns JSON with summary and change types", () => {
   });
 
   const diff = JSON.parse(output);
-  assert.equal(diff.schema_version, "0.3.0");
+  assert.equal(diff.schema_version, "0.4.0");
   assert.equal(diff.summary.added, 1);
   assert.equal(diff.summary.removed, 1);
   assert.equal(diff.summary.changed, 3);
@@ -136,7 +136,7 @@ test("CLI runs through a symlink for help, compile, and diff", () => {
       [link, "diff", "examples/baseline-plan.json", "examples/current-plan.json", "--format", "json"],
       { cwd: fileURLToPath(new URL("..", import.meta.url)), encoding: "utf8" }
     );
-    assert.equal(JSON.parse(diff).schema_version, "0.3.0");
+    assert.equal(JSON.parse(diff).schema_version, "0.4.0");
   } finally {
     rmSync(directory, { recursive: true, force: true });
   }
@@ -209,7 +209,7 @@ test("packed tarball installs and exposes runnable CLI and MCP bins", () => {
       ],
       { cwd: installDirectory, encoding: "utf8" }
     );
-    assert.equal(JSON.parse(diff).schema_version, "0.3.0");
+    assert.equal(JSON.parse(diff).schema_version, "0.4.0");
   } finally {
     rmSync(directory, { recursive: true, force: true });
   }

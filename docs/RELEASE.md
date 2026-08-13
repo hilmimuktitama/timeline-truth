@@ -2,14 +2,14 @@
 
 Use this checklist before publishing a public version of `timeline-truth`.
 
-## Current Release Notes (0.3.1)
+## Current Release Notes (0.4.0)
 
 - Truth Tools is the deterministic status-artifact review gate for the Truth
   Suite; Timeline Truth remains independently usable for focused timeline work.
 
-- Versioned reliability contract: `schema_version` 0.3.0 remains stable in the
+- Versioned reliability contract: `schema_version` 0.4.0 is checked in the
   engine and published schemas, while the package and MCP release version is
-  0.3.1; both are enforced by
+  0.4.0; both are enforced by
   `npm run contracts:verify`.
 - `evidence_grade` (`exact`/`derived`/`fuzzy`/`missing`) replaces the old
   arbitrary numeric `confidence`, with documented deterministic rules and fixed

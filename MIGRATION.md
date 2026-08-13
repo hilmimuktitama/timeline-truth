@@ -1,11 +1,10 @@
 # Migration Guide
 
-This guide covers moving to Timeline Truth 0.3.0 from 0.2.x.
+This guide covers moving to Timeline Truth 0.4.0 from 0.3.x.
 
 ## 1. Version Consistency
 
-The 0.3.0 normalized contract remains supported by the 0.3.1 package release
-and is verified by `npm run contracts:verify`:
+The 0.4.0 normalized contract is verified by `npm run contracts:verify`:
 
 - `package.json` release version
 - `src/mcp-server.js` server version
@@ -15,7 +14,7 @@ and is verified by `npm run contracts:verify`:
   2020-12); the verifier fails if they drift from the canonical siblings
 
 If you consume the timeline JSON contract programmatically, check
-`timeline.schema_version === "0.3.0"` before relying on the 0.3.0 contract
+`timeline.schema_version === "0.4.0"` before relying on the 0.4.0 contract
 fields; the package release version is reported separately.
 
 ## 2. Canonical Source References
@@ -30,8 +29,8 @@ fields; the package release version is reported separately.
   source id, suffixed with the finest location (`:line`, `:row N`, or
   `#heading`)
 
-Original Timeline Truth provenance fields (`path`, `heading`, `tableRow`,
-`line`, `text`) remain as optional passthrough metadata.
+Timeline Truth provenance fields (`path`, `heading`, `tableRow`, `line`) remain
+as optional metadata. `text` is no longer canonical output.
 
 **Deprecated inputs.** The legacy `sourceId` field and plain-string
 references are still accepted on input and converted automatically to
@@ -44,8 +43,14 @@ references are still accepted on input and converted automatically to
 
 becomes `{ "source_id": "upstream", "locator": "upstream:3", "line": 3 }`.
 Update your inputs to the canonical shape; the deprecated forms will be
-removed in a future major version. Fields outside the SourceRef contract are
-dropped during normalization.
+removed in a future major version. Legacy `text` is stripped, never copied to
+`note`, and emits a deprecation warning. Fields outside the SourceRef contract
+are dropped during normalization.
+
+Local parsing and canonical handoff are intentionally separate: parsers may
+use raw line/table text to recognize an item, but canonical timeline and
+StatusArtifact projections carry only locators and metadata. Consumers can
+review those projections independently of the source bodies.
 
 ## 3. `confidence` Is Gone
 

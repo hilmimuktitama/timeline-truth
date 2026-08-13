@@ -3,6 +3,20 @@
 All notable changes to Timeline Truth are documented here. Versions follow
 [Semantic Versioning](https://semver.org/).
 
+## [0.4.0] - 2026-08-13
+
+### Changed
+
+- Hardened the canonical SourceRef v2 projection: canonical suite references
+  are locator-only and never contain verbatim `text`.
+- Legacy `SourceRef.text`, `sourceId`, and plain-string references remain
+  accepted for compatibility, with deprecation warnings; legacy text is
+  stripped, never copied to `note`, and provenance locators are preserved.
+- Added credential-bearing HTTP(S) URL boundary checks for canonical locator
+  and URL metadata.
+- Documented the independent local raw-parser versus canonical locator-only
+  StatusArtifact handoff and updated schema drift verification.
+
 ## [0.3.1] - 2026-08-13
 
 ### Changed

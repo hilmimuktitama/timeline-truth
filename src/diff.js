@@ -93,49 +93,54 @@ export function diffTimelines(baseline = {}, current = {}, options = {}) {
 }
 
 export function renderDiffMarkdown(diff = {}) {
+  const markdown = (value) => escapeMarkdown(value);
+  const scalar = (value) => markdown(value);
   const lines = [
     "## Schedule Diff",
     "",
-    `Baseline: ${diff.baseline?.label ?? "baseline"} (${diff.baseline?.item_count ?? 0} items)  ·  Current: ${diff.current?.label ?? "current"} (${diff.current?.item_count ?? 0} items)`,
+    `Baseline: ${scalar(diff.baseline?.label ?? "baseline")} (${scalar(diff.baseline?.item_count ?? 0)} items)  ·  Current: ${scalar(diff.current?.label ?? "current")} (${scalar(diff.current?.item_count ?? 0)} items)`,
     "",
     "| Metric | Count |",
     "| --- | ---: |",
-    `| Added | ${diff.summary?.added ?? 0} |`,
-    `| Removed | ${diff.summary?.removed ?? 0} |`,
-    `| Changed | ${diff.summary?.changed ?? 0} |`,
-    `| Unchanged | ${diff.summary?.unchanged ?? 0} |`,
-    `| New impossible sequencing | ${diff.summary?.new_issues ?? 0} |`,
-    `| Ambiguous matches | ${diff.summary?.ambiguous_matches ?? 0} |`,
+    `| Added | ${scalar(diff.summary?.added ?? 0)} |`,
+    `| Removed | ${scalar(diff.summary?.removed ?? 0)} |`,
+    `| Changed | ${scalar(diff.summary?.changed ?? 0)} |`,
+    `| Unchanged | ${scalar(diff.summary?.unchanged ?? 0)} |`,
+    `| New impossible sequencing | ${scalar(diff.summary?.new_issues ?? 0)} |`,
+    `| Ambiguous matches | ${scalar(diff.summary?.ambiguous_matches ?? 0)} |`,
     ""
   ];
 
-  const changes = Array.isArray(diff.changes) ? diff.changes : [];
+  const changes = Array.isArray(diff.changes) ? diff.changes.filter(Boolean) : [];
   if (changes.length > 0) {
     lines.push("### Changes", "");
     for (const change of changes) {
-      lines.push(`- **${change.type}**: "${change.itemTitle}"${describeChange(change)}`);
+      const type = DIFF_CHANGE_TYPES.includes(change.type) ? change.type : "unknown";
+      // The allowlist makes this scalar safe without rendering an attacker-
+      // supplied type as Markdown syntax.
+      lines.push(`- **${type}**: "${markdown(change.itemTitle)}"${describeChange({ ...change, type }, markdown)}`);
     }
     lines.push("");
   } else {
     lines.push("### Changes", "", "- No schedule changes detected.", "");
   }
 
-  const ambiguities = Array.isArray(diff.ambiguities) ? diff.ambiguities : [];
+  const ambiguities = Array.isArray(diff.ambiguities) ? diff.ambiguities.filter(Boolean) : [];
   if (ambiguities.length > 0) {
     lines.push("### Ambiguous Matches", "");
     for (const ambiguity of ambiguities) {
-      lines.push(`- ${ambiguity.message}`);
+      lines.push(`- ${markdown(ambiguity.message)}`);
     }
     lines.push("");
   }
 
-  const newIssues = Array.isArray(diff.new_issues) ? diff.new_issues : [];
+  const newIssues = Array.isArray(diff.new_issues) ? diff.new_issues.filter(Boolean) : [];
   lines.push("### New Impossible Sequencing", "");
   if (newIssues.length === 0) {
     lines.push("- None.");
   } else {
     for (const issue of newIssues) {
-      lines.push(`- ${issue.message}`);
+      lines.push(`- ${markdown(issue.message)}`);
     }
   }
   lines.push("", "### Critical Path", "", `- ${CRITICAL_PATH_STATEMENT}`, "");
@@ -143,35 +148,41 @@ export function renderDiffMarkdown(diff = {}) {
   return `${lines.join("\n")}\n`;
 }
 
-function describeChange(change) {
+function describeChange(change, markdown = escapeMarkdown) {
   switch (change.type) {
     case "start_moved":
-      return `: start moved ${change.old ?? "(none)"} → ${change.new ?? "(none)"}`;
+      return `: start moved ${markdown(change.old ?? "(none)")} → ${markdown(change.new ?? "(none)")}`;
     case "end_moved":
-      return `: end moved ${change.old ?? "(none)"} → ${change.new ?? "(none)"}`;
+      return `: end moved ${markdown(change.old ?? "(none)")} → ${markdown(change.new ?? "(none)")}`;
     case "duration_changed":
-      return `: duration ${change.old ?? "(none)"} → ${change.new ?? "(none)"}`;
+      return `: duration ${markdown(change.old ?? "(none)")} → ${markdown(change.new ?? "(none)")}`;
     case "range_changed":
-      return `: range changed ${change.old ?? "(none)"} → ${change.new ?? "(none)"}`;
+      return `: range changed ${markdown(change.old ?? "(none)")} → ${markdown(change.new ?? "(none)")}`;
     case "owner_changed":
-      return `: owner ${change.old ?? "(none)"} → ${change.new ?? "(none)"}`;
+      return `: owner ${markdown(change.old ?? "(none)")} → ${markdown(change.new ?? "(none)")}`;
     case "status_changed":
-      return `: status ${change.old ?? "(none)"} → ${change.new ?? "(none)"}`;
+      return `: status ${markdown(change.old ?? "(none)")} → ${markdown(change.new ?? "(none)")}`;
     case "evidence_grade_changed":
-      return `: evidence grade ${change.old ?? "(none)"} → ${change.new ?? "(none)"}`;
+      return `: evidence grade ${markdown(change.old ?? "(none)")} → ${markdown(change.new ?? "(none)")}`;
     case "dependency_added":
-      return `: dependency "${change.value}" added`;
+      return `: dependency "${markdown(change.value)}" added`;
     case "dependency_removed":
-      return `: dependency "${change.value}" removed`;
+      return `: dependency "${markdown(change.value)}" removed`;
     case "added":
       return " was added to the current timeline";
     case "removed":
       return " was removed from the current timeline";
     case "impossible_sequence":
-      return `: starts before dependency "${change.dependency}" ends`;
+      return `: starts before dependency "${markdown(change.dependency)}" ends`;
     default:
       return "";
   }
+}
+
+function escapeMarkdown(value) {
+  return String(value ?? "")
+    .replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f-\u009f\u2028\u2029\r\n]+/g, " ")
+    .replace(/[\\`*_[\]{}()<>#+.!|~-]/g, "\\$&");
 }
 
 function matchItems(baselineItems, currentItems) {

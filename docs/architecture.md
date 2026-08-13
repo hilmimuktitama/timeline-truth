@@ -34,8 +34,9 @@ evaluation/             Cases and docs for the regression suite.
       items, fuzzy targets are preserved as `time_window`, and profiled note
       tables (`estimate_table`, `objective_table`, `progress_table`) are
       transformed into timeline rows. Table transforms rewrite record keys
-      only; every item keeps its original `source_refs.line`, `tableRow`, and
-      `text` from the source content.
+       only; every item keeps locator provenance (`source_refs.line`, `tableRow`,
+       and optional `heading`) but never carries raw source text in canonical
+       output.
    - CSV: header-driven record mapping.
    - JSON: arrays or `{items}` with imported assumptions.
 3. `normalizeItem` produces the contract shape (see
@@ -159,9 +160,9 @@ and in gantt status text so unescaped user content cannot corrupt the diagram.
 The package release version and normalized contract version are checked
 independently by `npm run contracts:verify`:
 
-- `package.json` → release `version` (`0.3.1`)
-- `src/mcp-server.js` → server release `version` (`0.3.1`)
-- `src/timeline.js` → normalized contract `SCHEMA_VERSION` (`0.3.0`)
+- `package.json` → release `version` (`0.4.0`)
+- `src/mcp-server.js` → server release `version` (`0.4.0`)
+- `src/timeline.js` → normalized contract `SCHEMA_VERSION` (`0.4.0`)
 
 The package can ship a patch release without changing the shared normalized
 contract. The contract version is carried by timeline and diff artifacts and
@@ -182,6 +183,15 @@ Node itself.
 - JSON items are scanned for denylisted dangerous fields (prototype-pollution
   vectors and code-execution hints); matching fields are dropped and reported.
 - No network calls in the library; the package depends only on the MCP SDK.
+- URI safety checks decode percent-encoded values to a bounded fixpoint and
+  reject excessive or suspicious multi-layer URL encoding before canonical
+  locators, paths, URLs, notes, or diagnostics are emitted.
+- `gaps`, `issues`, and nested evidence containers recursively remove raw
+  evidence keys (such as `body`, `text`, `source_excerpt`, and `verbatim`) and
+  emit one generic warning without echoing the removed value.
+- Source paths use an independently sanitized fallback across `path`,
+  `file_path`, and `filePath`; unsafe candidates are omitted rather than
+  allowing an unsafe first candidate to block a safe fallback.
 
 ## Explicit Non-Goals
 
