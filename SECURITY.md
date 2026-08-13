@@ -6,7 +6,7 @@ planning content provided by the user or by an MCP client.
 ## Supported Versions
 
 Security fixes target the latest version on the default branch. The current
-supported release line is 0.3.x.
+supported release line is 0.4.x.
 
 ## Reporting A Vulnerability
 
@@ -28,6 +28,13 @@ Include:
 - Do not execute user-provided planning content as code.
 - Do not infer, store, or transmit credentials from source material.
 - Treat source text as untrusted input.
+- Raw source text is sensitive. Canonical SourceRef output is always locator-only;
+  legacy `SourceRef.text` and `source_excerpt` inputs are stripped with a generic
+  deprecation warning.
+  Credential-bearing URLs are omitted from source paths, locators, and URL fields.
+  `source_id` is caller-supplied and source-local. Source references
+  are opaque external pointers: output provides no source manifest, existence
+  verification, or semantic verification.
 - JSON timeline items are scanned for unsupported dangerous fields
   (`__proto__`, `prototype`, `constructor`, `eval`, `exec`, `command`, `shell`,
   `script`, `spawn`, `require`, `import`, `fetch`, `child_process`, `os`);

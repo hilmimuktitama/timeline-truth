@@ -14,6 +14,10 @@ test("create_timeline schema exposes Markdown source paths and section allowlist
   const createTool = listTimelineTools().find((tool) => tool.name === "create_timeline");
 
   assert.equal(createTool.inputSchema.properties.sources.items.properties.path.type, "string");
+  assert.equal(createTool.inputSchema.properties.sources.items.properties.include_source_text.type, "boolean");
+  assert.equal(createTool.inputSchema.properties.sources.items.properties.include_source_text.default, false);
+  assert.equal(createTool.inputSchema.properties.include_source_text.type, "boolean");
+  assert.equal(createTool.inputSchema.properties.include_source_text.default, false);
   assert.deepEqual(createTool.inputSchema.properties.markdown.properties.sections.items, { type: "string" });
   assert.equal(createTool.inputSchema.properties.markdown.properties.ignoreFrontmatter.default, true);
 });
@@ -53,8 +57,33 @@ test("callTimelineTool returns JSON text content for create_timeline", () => {
   const parsed = JSON.parse(response.content[0].text);
   assert.equal(parsed.timeline.items[0].title, "Discovery");
   assert.equal(parsed.timeline.items[0].evidence_grade, "exact");
+  assert.equal(parsed.timeline.items[0].source_refs[0].text, undefined);
+  assert.equal(parsed.timeline.items[0].source_refs[0].locator, "notes:1");
   assert.match(parsed.renders.mermaid_gantt, /^gantt\n/);
   assert.match(parsed.renders.review_report, /^## Timeline Review\n/);
+});
+
+test("create_timeline keeps canonical MCP output locator-only regardless of legacy text settings", () => {
+  const response = callTimelineTool("create_timeline", {
+    include_source_text: true,
+    sources: [{ id: "notes", type: "text", content: "Discovery: 2026-06-01 owner TPM" }]
+  });
+
+  const parsed = JSON.parse(response.content[0].text);
+  assert.equal(parsed.timeline.items[0].source_refs[0].text, undefined);
+
+  const sourceOverride = callTimelineTool("create_timeline", {
+    include_source_text: true,
+    sources: [{
+      id: "private-notes",
+      type: "text",
+      include_source_text: false,
+      content: "Private detail: 2026-06-01 owner TPM"
+    }]
+  });
+  const overridden = JSON.parse(sourceOverride.content[0].text);
+  assert.equal(overridden.timeline.items[0].source_refs[0].text, undefined);
+  assert.equal(overridden.timeline.items[0].source_refs[0].locator, "private-notes:1");
 });
 
 test("render_timeline exposes review reports through the MCP schema", () => {

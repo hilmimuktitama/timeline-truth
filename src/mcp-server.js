@@ -8,7 +8,7 @@ import { callTimelineTool, listTimelineTools } from "./mcp-tools.js";
 const server = new Server(
   {
     name: "timeline-truth",
-    version: "0.3.1"
+    version: "0.4.0"
   },
   {
     capabilities: {

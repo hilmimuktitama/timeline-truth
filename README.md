@@ -1,6 +1,6 @@
 # Timeline Truth
 
-Status: v0.3.1 public release. MIT licensed. Requires Node.js 22 or newer.
+Status: v0.4.0 public release. MIT licensed. Requires Node.js 22 or newer.
 
 Releases are published from an exact, version-checked release tag after the
 trusted workflow passes its tests, audit, contracts, evaluation, CLI diff, and
@@ -12,6 +12,8 @@ evidence grades, validation gaps and issues, assumptions, Mermaid/Markdown
 renders, and schedule diffs.
 
 [`truth-tools`](https://github.com/hilmimuktitama/truth-tools) is the deterministic status-artifact review gate for the Truth Suite. Timeline Truth remains independently usable as the focused tool for parsing, validation, rendering, refinement, and schedule drift; use it directly when you need those timeline capabilities.
+
+Truth Tools is an evidence-first technical-program reliability toolkit combining provenance-preserving evidence intake, defensible timeline compilation, agent-guided status synthesis, and deterministic pre-publication review.
 
 It is intentionally narrow. Timeline Truth does not invent missing dates,
 owners, or dependencies. It preserves `source_refs`, grades every item by the
@@ -135,15 +137,18 @@ as `W3-W4 May 2026` are preserved as `time_window`/`date_text` and flagged with
 an `exact_date` gap instead of being converted into invented dates. The response
 also includes `noise_report.ignored` counts for skipped frontmatter, prose,
 metadata lines, unsupported tables, and table rows without target dates.
-`source_refs` on every item always point back to the original content —
-original line numbers, table row numbers, and raw row text are kept even when
-table headers are normalized or profiled note tables are transformed. Each
-reference uses the canonical SourceRef contract: a required `source_id`
-(identifying the source record in the same artifact) and a required
-deterministic `locator` — the source path (or stable source id) with the line,
-table row, or heading appended. The legacy `sourceId` field and plain-string
-references are still accepted on input, converted to `source_id` + `locator`,
-and reported as deprecation warnings in `noise_report.warnings`.
+`source_refs` on every item are opaque external pointers, not embedded source
+manifests: Timeline Truth does not provide source-manifest or semantic
+verification. Each reference uses canonical SourceRef v2: a required
+`source_id` (caller-supplied and source-local) and a required deterministic
+`locator`, with only `heading`, `line`, `tableRow`, `path`, `url`, `revision`,
+`content_hash`, and timestamps as optional provenance metadata. Canonical
+outputs never contain verbatim reference text. The local parser may retain raw
+rows internally while parsing, but the StatusArtifact/projection handoff is
+locator-only and can be consumed independently without source bodies. The
+legacy `sourceId`, plain-string references, and `text` field are accepted on
+input, converted or stripped, and reported as deprecation warnings in
+`noise_report.warnings`; stripped text is never moved to `note`.
 
 ## Evidence Grades
 

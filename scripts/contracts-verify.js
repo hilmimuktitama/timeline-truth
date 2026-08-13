@@ -19,18 +19,18 @@ function check(label, ok, detail = "") {
 //    contract version is checked separately below.
 const packageJson = JSON.parse(readFileSync(resolve(repoRoot, "package.json"), "utf8"));
 check(
-  "package.json version is 0.3.1",
-  packageJson.version === "0.3.1",
+  "package.json version is 0.4.0",
+  packageJson.version === "0.4.0",
   `found ${packageJson.version}`
 );
 check(
-  "engine SCHEMA_VERSION is 0.3.0",
-  SCHEMA_VERSION === "0.3.0",
+  "engine SCHEMA_VERSION is 0.4.0",
+  SCHEMA_VERSION === "0.4.0",
   `found ${SCHEMA_VERSION}`
 );
 const serverSource = readFileSync(resolve(repoRoot, "src/mcp-server.js"), "utf8");
 const serverVersion = serverSource.match(/version:\s*"([^"]+)"/)?.[1];
-check("mcp-server.js version is 0.3.1", serverVersion === "0.3.1", `found ${serverVersion}`);
+check("mcp-server.js version is 0.4.0", serverVersion === "0.4.0", `found ${serverVersion}`);
 
 // 2. Local schemas are always checked structurally and against runtime output.
 //    Cross-repository byte checks are opt-in when a sibling is present, or
@@ -83,43 +83,42 @@ checkSchemaContract("timeline-item", itemSchema, {
     "dangerous_fields", "source_refs"
   ],
   properties: {
-    id: { type: "string", minLength: 1 },
-    title: { type: "string", minLength: 1 },
+    id: { type: "string", minLength: 1, maxLength: 2048 },
+    title: { type: "string", minLength: 1, maxLength: 2048 },
     type: { type: "string", enum: ["task", "milestone"] },
     start: { type: "string", pattern: "^\\d{4}-\\d{2}-\\d{2}$" },
     end: { type: "string", pattern: "^\\d{4}-\\d{2}-\\d{2}$" },
-    duration: { type: "string", pattern: "^\\d+[dwmy]$" },
-    time_window: { type: "string" },
-    date_text: { type: "string" },
+    duration: { type: "string", maxLength: 2048, pattern: "^\\d+[dwmy]$" },
+    time_window: { type: "string", maxLength: 2048 },
+    date_text: { type: "string", maxLength: 2048 },
     exact_date_needed: { type: "boolean" },
-    owner: { type: "string", minLength: 1 },
-    status: { type: "string", minLength: 1 },
-    dependencies: { type: "array", items: { type: "string" } },
+    owner: { type: "string", minLength: 1, maxLength: 2048 },
+    status: { type: "string", minLength: 1, maxLength: 2048 },
+    dependencies: { type: "array", maxItems: 50, items: { type: "string", maxLength: 2048 } },
     date_derivation: { type: "string", enum: ["explicit", "natural", "none"] },
     evidence_grade: { type: "string", enum: ["exact", "derived", "fuzzy", "missing"] },
-    evidence_reason: { type: "string" },
+    evidence_reason: { type: "string", maxLength: 2048 },
     missing_title: { type: "boolean" },
     dangerous_fields: { type: "array", items: { type: "string" } },
-    source_refs: { type: "array", items: { $ref: "https://truth-tools.dev/schemas/source-ref.schema.json" } }
+    source_refs: { type: "array", maxItems: 20, items: { $ref: "https://truth-tools.dev/schemas/source-ref.schema.json" } }
   }
 });
 checkSchemaContract("source-ref", sourceRefSchema, {
   id: "https://truth-tools.dev/schemas/source-ref.schema.json",
   required: ["source_id", "locator"],
   properties: {
-    source_id: { type: "string", minLength: 1 },
-    locator: { type: "string", minLength: 1 },
-    note: { type: "string", minLength: 1 },
-    path: { type: ["string", "null"] },
-    url: { type: ["string", "null"] },
+    source_id: { type: "string", minLength: 1, maxLength: 2048 },
+    locator: { type: "string", minLength: 1, maxLength: 2048 },
+    note: { type: "string", minLength: 1, maxLength: 2048 },
+    path: { type: ["string", "null"], maxLength: 2048 },
+    url: { type: ["string", "null"], maxLength: 2048 },
     observed_at: { type: ["string", "null"], format: "date-time", pattern: "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$" },
     source_updated_at: { type: ["string", "null"], format: "date-time", pattern: "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$" },
     revision: { type: ["string", "number", "null"] },
     content_hash: { type: ["string", "null"], pattern: "^(?:sha256:)?[a-f0-9]{64}$" },
-    heading: { type: "string", minLength: 1 },
+    heading: { type: "string", minLength: 1, maxLength: 2048 },
     tableRow: { type: "integer", minimum: 1 },
     line: { type: "integer", minimum: 1 },
-    text: { type: "string", minLength: 1 }
   }
 });
 
@@ -154,6 +153,10 @@ for (const [path, type] of fixtures) {
       itemErrors.join("; ")
     );
     for (const sourceRef of item.source_refs) {
+      check(
+        `source_ref of "${item.title}" is canonical locator-only`,
+        !Object.hasOwn(sourceRef, "text") && !Object.hasOwn(sourceRef, "source_excerpt")
+      );
       const refErrors = validateAgainstSchema(serialize(sourceRef), sourceRefSchema);
       check(
         `source_ref of "${item.title}" conforms to source-ref schema`,
@@ -169,8 +172,8 @@ const baseline = JSON.parse(readFileSync(resolve(repoRoot, "examples/baseline-pl
 const current = JSON.parse(readFileSync(resolve(repoRoot, "examples/current-plan.json"), "utf8"));
 const diff = diffTimelines(baseline, current);
 check(
-  "diff output schema_version is 0.3.0",
-  diff.schema_version === "0.3.0",
+  "diff output schema_version is 0.4.0",
+  diff.schema_version === "0.4.0",
   `found ${diff.schema_version}`
 );
 check(
@@ -242,7 +245,7 @@ function checkSchemaContract(name, schema, expected) {
     const actual = schema.properties?.[property];
     const contract = expected.properties[property];
     check(`${name}.${property} schema definition exists`, isObject(actual));
-    for (const keyword of ["type", "minLength", "minimum", "pattern", "enum", "const", "$ref", "format", "items"]) {
+    for (const keyword of ["type", "minLength", "maxLength", "minimum", "maxItems", "pattern", "enum", "const", "$ref", "format", "items"]) {
       if (contract[keyword] !== undefined) {
         check(`${name}.${property} ${keyword} is exact`, deepEqual(actual?.[keyword], contract[keyword]), `found ${JSON.stringify(actual?.[keyword])}`);
       }
@@ -322,6 +325,10 @@ function validateAgainstSchema(value, schema, rootSchema = schema) {
     errors.push(`"${value}" is shorter than minLength ${schema.minLength}`);
   }
 
+  if (typeof value === "string" && schema.maxLength !== undefined && value.length > schema.maxLength) {
+    errors.push(`"${value}" is longer than maxLength ${schema.maxLength}`);
+  }
+
   if (typeof value === "string" && schema.format === "date-time" &&
       !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,9})?(Z|[+-]\d{2}:\d{2})$/.test(value)) {
     errors.push(`"${value}" is not a date-time`);
@@ -332,6 +339,9 @@ function validateAgainstSchema(value, schema, rootSchema = schema) {
   }
 
   if (Array.isArray(value)) {
+    if (schema.maxItems !== undefined && value.length > schema.maxItems) {
+      errors.push(`array has ${value.length} items, maximum is ${schema.maxItems}`);
+    }
     if (schema.items) {
       value.forEach((entry, index) => {
         for (const error of validateAgainstSchema(entry, schema.items, rootSchema)) {

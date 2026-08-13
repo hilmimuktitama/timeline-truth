@@ -23,11 +23,13 @@
     "id": {
       "type": "string",
       "minLength": 1,
+      "maxLength": 2048,
       "description": "Stable item identifier used for drift matching between baseline and current plans."
     },
     "title": {
       "type": "string",
       "minLength": 1,
+      "maxLength": 2048,
       "description": "Short human-readable item title. Empty titles normalize to \"Untitled\" and are flagged."
     },
     "type": {
@@ -46,15 +48,18 @@
     },
     "duration": {
       "type": "string",
+      "maxLength": 2048,
       "pattern": "^\\d+[dwmy]$",
       "description": "Duration such as 5d, 2w, 1m, 1y (deterministic standalone rendering)."
     },
     "time_window": {
       "type": "string",
+      "maxLength": 2048,
       "description": "Preserved fuzzy window (for example \"W3-W4 May 2026\") that needs an exact date."
     },
     "date_text": {
       "type": "string",
+      "maxLength": 2048,
       "description": "Raw date evidence text, including rejected timezone-free datetimes."
     },
     "exact_date_needed": {
@@ -64,16 +69,19 @@
     "owner": {
       "type": "string",
       "minLength": 1,
+      "maxLength": 2048,
       "description": "Accountable owner for the item."
     },
     "status": {
       "type": "string",
       "minLength": 1,
+      "maxLength": 2048,
       "description": "Status such as planned, active, done, blocked, at risk."
     },
     "dependencies": {
       "type": "array",
-      "items": { "type": "string" },
+      "maxItems": 50,
+      "items": { "type": "string", "maxLength": 2048 },
       "description": "Dependency item titles."
     },
     "date_derivation": {
@@ -88,6 +96,7 @@
     },
     "evidence_reason": {
       "type": "string",
+      "maxLength": 2048,
       "description": "Deterministic human-readable reason for the evidence grade."
     },
     "missing_title": {
@@ -101,6 +110,7 @@
     },
     "source_refs": {
       "type": "array",
+      "maxItems": 20,
       "items": { "$ref": "https://truth-tools.dev/schemas/source-ref.schema.json" },
       "description": "Evidence pointers back to source material."
     }

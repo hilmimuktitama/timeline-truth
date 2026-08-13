@@ -11,6 +11,11 @@ const SOURCE_SCHEMA = {
     type: { type: "string", enum: ["text", "markdown", "csv", "json"], default: "text" },
     profile: { type: "string", description: "Optional Markdown profile: estimate_table, objective_table, progress_table." },
     source_system: { type: "string", description: "Optional system of record (for example jira, confluence)." },
+    include_source_text: {
+      type: "boolean",
+      default: false,
+      description: "Legacy compatibility input. Canonical MCP output is always locator-only."
+    },
     content: {
       description: "Pasted text/file content. JSON sources may pass a JSON string or object.",
       oneOf: [{ type: "string" }, { type: "object" }, { type: "array" }]
@@ -46,6 +51,11 @@ export function listTimelineTools() {
             type: "array",
             minItems: 1,
             items: SOURCE_SCHEMA
+          },
+          include_source_text: {
+            type: "boolean",
+            default: false,
+             description: "Legacy compatibility input. Canonical MCP output is always locator-only."
           },
           markdown: {
             type: "object",
@@ -149,7 +159,11 @@ export function listTimelineTools() {
 export function callTimelineTool(name, args = {}) {
   switch (name) {
     case "create_timeline":
-      return jsonContent(createTimeline({ sources: args.sources, markdown: args.markdown }));
+      return jsonContent(createTimeline({
+        sources: args.sources,
+        markdown: args.markdown,
+        include_source_text: args.include_source_text ?? false
+      }));
     case "validate_timeline":
       return jsonContent(validateTimeline(args.timeline));
     case "render_timeline":

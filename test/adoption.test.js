@@ -34,10 +34,10 @@ test("README gives a credible first-use path for AI-agent TPM adoption", () => {
   assert.match(readme, /critical path/i);
 });
 
-test("package exposes both MCP and first-run CLI binaries at version 0.3.1", () => {
+test("package exposes both MCP and first-run CLI binaries at version 0.4.0", () => {
   const packageJson = JSON.parse(readFileSync("package.json", "utf8"));
 
-  assert.equal(packageJson.version, "0.3.1");
+  assert.equal(packageJson.version, "0.4.0");
   assert.equal(packageJson.bin["timeline-truth-mcp"], "src/mcp-server.js");
   assert.equal(packageJson.bin["timeline-truth"], "src/cli.js");
   assert.deepEqual(
@@ -134,6 +134,9 @@ for (const [name, sourcePath, sourceType, expectedPath] of EXAMPLE_CASES) {
 
     for (const item of result.timeline.items) {
       assert.ok(item.source_refs.length > 0, `${item.title} should preserve at least one source_ref`);
+      for (const ref of item.source_refs) {
+        assert.equal(ref.text, undefined, "canonical suite refs must never contain text");
+      }
       assert.ok(["exact", "derived", "fuzzy", "missing"].includes(item.evidence_grade));
       assert.equal(item.confidence, undefined);
     }
